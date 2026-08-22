@@ -3488,9 +3488,11 @@ BEGIN
                        AND is_delete = 0), 0);
         IF @onhand + @QtyChange < 0
         BEGIN
+            DECLARE @onhandText   NVARCHAR(20) = CAST(@onhand AS NVARCHAR(20));
+            DECLARE @requiredText NVARCHAR(20) = CAST(-@QtyChange AS NVARCHAR(20));
             RAISERROR (N'STOCK: สต็อกไม่พอ (SKU auto=%d, คลัง auto=%d, คงเหลือ %s, ต้องการ %s)',
                        16, 1, @SkuAuto, @WarehouseAuto,
-                       CAST(@onhand AS NVARCHAR(20)), CAST(-@QtyChange AS NVARCHAR(20)));
+                       @onhandText, @requiredText);
             RETURN;
         END
     END
@@ -3706,9 +3708,10 @@ BEGIN
         OPEN cur_line; FETCH NEXT FROM cur_line INTO @sku, @q;
         WHILE @@FETCH_STATUS = 0
         BEGIN
+            DECLARE @qtyIssue DECIMAL(18,2) = -@q;
             EXEC dbo.USP_APPLY_STOCK_MOVEMENT
                  @SkuAuto = @sku, @WarehouseAuto = @wh, @MovementType = N'ISSUE',
-                 @QtyChange = -@q, @DocTable = N'tb_order', @DocAuto = @oAuto, @DocNo = @docNo,
+                 @QtyChange = @qtyIssue, @DocTable = N'tb_order', @DocAuto = @oAuto, @DocNo = @docNo,
                  @CustomerAuto = @cus, @MovementDate = @docDate, @UpdateBy = @UpdateBy;
             FETCH NEXT FROM cur_line INTO @sku, @q;
         END
@@ -3852,9 +3855,10 @@ BEGIN
         OPEN cur_vr; FETCH NEXT FROM cur_vr INTO @sku, @q, @cost;
         WHILE @@FETCH_STATUS = 0
         BEGIN
+            DECLARE @qtyReturnOut DECIMAL(18,2) = -@q;
             EXEC dbo.USP_APPLY_STOCK_MOVEMENT
                  @SkuAuto = @sku, @WarehouseAuto = @wh, @MovementType = N'RETURN_OUT',
-                 @QtyChange = -@q, @UnitCost = @cost,
+                 @QtyChange = @qtyReturnOut, @UnitCost = @cost,
                  @DocTable = N'tb_vendor_return_note', @DocAuto = @nAuto, @DocNo = @docNo,
                  @VendorAuto = @ven, @MovementDate = @docDate, @UpdateBy = @UpdateBy;
             FETCH NEXT FROM cur_vr INTO @sku, @q, @cost;

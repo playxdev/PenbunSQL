@@ -429,6 +429,98 @@ tables 32 | views 12 | procedures 10 | foreign_keys 53
 
 และ query ตัวที่สอง (`untrusted_fk`) ต้องคืน **0 แถว**
 
+### 7. เพิ่มผู้ใช้งานลง `tb_users` (bcrypt)
+
+`user_password` เก็บเป็น **bcrypt hash เท่านั้น** — ห้ามเก็บ plaintext และห้ามใช้ `HASHBYTES()` ของ SQL Server
+(PenbunAPI ตรวจรหัสผ่านด้วย `bcrypt.CompareHashAndPassword` จาก `golang.org/x/crypto/bcrypt` ใน `controllers/auth.go`)
+
+**1) ติดตั้งเครื่องมือสร้าง hash**
+
+```bash
+sudo apt update
+sudo apt install apache2-utils -y
+```
+
+**2) สร้าง bcrypt hash (cost 10)**
+
+```bash
+htpasswd -nbBC 10 somchai 'Penbun@2026'
+```
+
+ผลลัพธ์ — ให้ตัดเอา**เฉพาะส่วนหลังเครื่องหมาย `:`**
+
+```
+somchai:$2y$10$KfQ8mU5VvJ5QGk7/LN9OeOujOPEwLjD3Oo4yEWDwEpr6/LkfuPWoK
+        └──────────────── ส่วนที่นำไปใส่ user_password ────────────────┘
+```
+
+> ✅ prefix `$2y$` ใช้ได้กับ PenbunAPI — Go bcrypt ตรวจเฉพาะ major version (`2`) ไม่สนใจ minor (`a`/`b`/`y`)
+> ⚠️ ครอบรหัสผ่านด้วย single quote ใน bash เสมอ ถ้ามี `$`, `!`, `#` มิฉะนั้น shell จะแปลงค่าก่อนถึง `htpasswd`
+> ⚠️ อย่าตั้ง cost เกิน 12 — ทุก login จะช้าขึ้นแบบทวีคูณ
+
+**3) INSERT ลงฐานข้อมูล**
+
+```sql
+INSERT INTO dbo.tb_users
+    ([prefix], [user_name], [user_password], [user_level], [full_name], [email], [update_by])
+VALUES
+    (N'USR', N'somchai',
+     N'$2y$10$KfQ8mU5VvJ5QGk7/LN9OeOujOPEwLjD3Oo4yEWDwEpr6/LkfuPWoK',
+     N'USER', N'สมชาย ใจดี', N'somchai@penbun.local', N'Admin01');
+```
+
+| ห้ามใส่ | เหตุผล |
+| :--- | :--- |
+| `autoID` | `IDENTITY(1,1)` |
+| `user_id` | `TRIG_GENERATE_TB_USERS_ID` เติมให้ (`USRA000002`) — ถ้าใส่มาเอง Trigger จะข้ามและเลขจะหลุด series |
+| `update_date`, `is_active`, `is_delete`, `id_status`, `counting_password_fail`, `status_user_locked`, `status_change_pw` | มี `DEFAULT` ครบแล้ว |
+
+ค่า `user_level` ที่ใช้อยู่: `ADMIN` / `USER` (ไม่มี CHECK constraint — default = `USER`)
+`status_change_pw` default = `1` แปลว่า**บังคับเปลี่ยนรหัสผ่านตอน login ครั้งแรก** ตาม Authentication Spec M001
+
+**4) ตรวจสอบ**
+
+```sql
+SELECT autoID, user_id, user_name, user_level, is_active, is_delete, status_change_pw
+  FROM dbo.tb_users
+ WHERE is_delete = 0
+ ORDER BY autoID;
+```
+
+`user_id` ต้องไม่เป็น `NULL` — ถ้าเป็น `NULL` แปลว่า Trigger ไม่ทำงาน ให้ตรวจ `tb_reference` แถว `ref_id = 'tb_users'`
+
+-----
+
+#### ⛔ ห้ามใช้ `DELETE` + `DBCC CHECKIDENT RESEED` เพื่อล้างผู้ใช้
+
+```sql
+-- ❌ พังทั้งสองบรรทัด
+DELETE FROM tb_users;
+DBCC CHECKIDENT ('tb_users', RESEED, 0);
+```
+
+1. `TRIG_BLOCK_DELETE_TB_USERS` เป็น `INSTEAD OF DELETE` — `DELETE` จะกลายเป็น **soft delete** (`is_delete = 1`) แถวยังอยู่ในตารางครบ
+2. พอ `RESEED, 0` แล้ว `INSERT` ถัดไปจะได้ `autoID = 1` ซึ่ง**ชนกับแถวเดิมที่ยังอยู่** → `PK_tb_users` violation
+3. `DBCC CHECKIDENT` ไม่รีเซ็ต Business ID — ตัวนับอยู่ที่ `tb_reference.ref_int` คนละที่กับ `IDENTITY`
+
+**ถ้าต้องการปิดการใช้งานผู้ใช้ ให้ทำแบบนี้แทน:**
+
+```sql
+-- ปิดชั่วคราว (login ไม่ได้ แต่ประวัติยังอยู่)
+UPDATE dbo.tb_users SET is_active = 0, update_by = N'Admin01' WHERE user_name = N'somchai';
+
+-- ปิดถาวร (soft delete — ปลด UQ_tb_users_user_name ให้ตั้งชื่อซ้ำใหม่ได้)
+UPDATE dbo.tb_users SET is_delete = 1, is_active = 0, id_status = N'DELETED' WHERE user_name = N'somchai';
+
+-- เปลี่ยนรหัสผ่าน (ใช้ hash ใหม่จากขั้นตอนที่ 2)
+UPDATE dbo.tb_users
+   SET user_password = N'$2y$10$...', status_change_pw = 1, counting_password_fail = 0,
+       status_user_locked = 0, update_by = N'Admin01'
+ WHERE user_name = N'somchai';
+```
+
+> 🔄 ต้องการล้างตารางจริง ๆ ให้ rebuild ทั้งฐานข้อมูลด้วย `SQL/SQL-PENBUN-v7.sql` (SECTION 1 มี `DROP` อยู่แล้ว) — อย่าล้างเฉพาะ `tb_users` เพราะ `tb_reference` จะไม่ sync
+
 -----
 
 ## 🔄 Migration Note (v5 → v7)
