@@ -16,7 +16,12 @@
   * **`README.md`**: (ไฟล์นี้) ภาพรวมระบบ, Business Flow และ Concept หลัก
   * **`SQL-STANDARD.md`**: กฎเหล็กการสร้างตาราง, Naming Convention, และ Audit Rules
   * **`SQL-TABLE.md`**: ลำดับการสร้างตาราง (Execution Order) และ Dependency Map
-  * **`SQL/SQL-PENBUN-v9.sql`**: Full standalone build ล่าสุด (34 ตาราง · 32 View · 11 Procedure ·
+  * **`SQL/SQL-PENBUN-v10.sql`**: Full standalone build ล่าสุด (34 ตาราง · 32 View · 11 Procedure ·
+    1 Function, 4,996 บรรทัด) — v9 ทั้งก้อน บวกที่อยู่ชุดเดียวกันทั้งสี่ตาราง:
+    `tb_warehouse` ได้ `sub_district` · `district` · `zip_code` และ `vw_company` คืน
+    `sub_district` · `district` ที่ตารางมีมาตั้งแต่ v5 แต่ View ไม่เคย SELECT
+    ไม่มีตารางใหม่ จำนวน object เท่า v9 ทุกบรรทัด
+  * **`SQL/SQL-PENBUN-v9.sql`**: Full standalone build (34 ตาราง · 32 View · 11 Procedure ·
     1 Function, 4,966 บรรทัด) — v8 ทั้งก้อน บวกแม็ปส่วนลด `tb_discount_group` · `tb_price_rule` ·
     `UFN_RESOLVE_DISCOUNT` · ที่มาและกติกา: [DISCOUNT-MODEL.md](../DISCOUNT-MODEL.md)
   * **`SQL/SQL-PENBUN-v8.sql`**: Full standalone build (32 ตาราง · 30 View · 11 Procedure, 4,481 บรรทัด)
