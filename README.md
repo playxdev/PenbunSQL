@@ -16,6 +16,9 @@
   * **`README.md`**: (ไฟล์นี้) ภาพรวมระบบ, Business Flow และ Concept หลัก
   * **`SQL-STANDARD.md`**: กฎเหล็กการสร้างตาราง, Naming Convention, และ Audit Rules
   * **`SQL-TABLE.md`**: ลำดับการสร้างตาราง (Execution Order) และ Dependency Map
+  * **`SQL/SQL-PENBUN-v9.sql`**: Full standalone build ล่าสุด (34 ตาราง · 32 View · 11 Procedure ·
+    1 Function, 4,966 บรรทัด) — v8 ทั้งก้อน บวกแม็ปส่วนลด `tb_discount_group` · `tb_price_rule` ·
+    `UFN_RESOLVE_DISCOUNT` · ที่มาและกติกา: [DISCOUNT-MODEL.md](../DISCOUNT-MODEL.md)
   * **`SQL/SQL-PENBUN-v8.sql`**: Full standalone build (32 ตาราง · 30 View · 11 Procedure, 4,481 บรรทัด)
   * **`SQL/SQL-PENBUN-v7.sql`**: รุ่นก่อน เก็บไว้อ้างอิงเท่านั้น
 

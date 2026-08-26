@@ -1,8 +1,8 @@
-# 🏗️ PenbunSQL v8.0.0 — Execution Order & Development Roadmap
+# 🏗️ PenbunSQL v9.0.0 — Execution Order & Development Roadmap
 
-เอกสารนี้ระบุลำดับการสร้าง Object ในฐานข้อมูล PenbunSQL v8.0.0 และติดตามสถานะการพัฒนา
+เอกสารนี้ระบุลำดับการสร้าง Object ในฐานข้อมูล PenbunSQL v9.0.0 และติดตามสถานะการพัฒนา
 
-**SQL Script:** [`SQL/SQL-PENBUN-v8.sql`](./SQL/SQL-PENBUN-v8.sql) — standalone full build, 32 ตาราง · 30 View
+**SQL Script:** [`SQL/SQL-PENBUN-v9.sql`](./SQL/SQL-PENBUN-v9.sql) — standalone full build, 34 ตาราง · 32 View · 11 Procedure · 1 Function
 
 > **🚨 คำเตือน 1:** v8 เป็น **Full Rebuild** — SECTION 1 ของ script คือ `DROP` ทั้งฐานข้อมูล **สำรองข้อมูลก่อนรันเสมอ**
 >
@@ -48,6 +48,7 @@
 | 4 | ✅ | `tb_customer_type` | CUT | ประเภทลูกค้า (`base_credit_day`) |
 | 5 | ✅ | `tb_vendor_type` | VET | ประเภทคู่ค้า — seed ใหม่ 24 หมวด ครอบคลุม non-book |
 | 6 | ✅ | `tb_discount_type` | DCT | ประเภทส่วนลด |
+| 6b | ✅ | `tb_discount_group` | DCG | **v9** กลุ่มส่วนลดลูกค้า — `tb_customer.ref_discount_group_auto` ชี้มาที่นี่ |
 | 7 | ✅ | `tb_product_category` | PCT | หมวดสินค้า (ชั้นบนสุด) |
 | 8 | ✅ | `tb_product_format_type` | PFM | รูปแบบสินค้า |
 | 9 | ✅ | `tb_unit_type` | UNT | หน่วยนับ |
@@ -144,6 +145,17 @@
 
 ---
 
+## 🟦 Layer 10: Price Rules (v9)
+
+| Order | Status | Table | Prefix | FK Dependencies |
+| :--- | :---: | :--- | :---: | :--- |
+| 33 | ✅ | `tb_price_rule` | PRL | 🔗 `tb_discount_group` 🔗 `tb_customer` 🔗 `tb_route` 🔗 `tb_product_sku` |
+
+กฎส่วนลดสี่มิติในตารางเดียว แยกด้วย `rule_scope` โดยมี `CK_tb_price_rule_target` บังคับว่าปลายทางต้องตรงกับ scope
+ตัวรวมชั้นคือ `UFN_RESOLVE_DISCOUNT` (SECTION 10) — ที่มาและกติกาเต็มอยู่ใน [DISCOUNT-MODEL.md](../DISCOUNT-MODEL.md)
+
+---
+
 ## 📐 Post-Table Objects (ลำดับหลังสร้างตารางครบ)
 
 | Order | Status | Section | Object | จำนวน |
@@ -216,6 +228,9 @@ Layer 8 (Transactions)
 
 Layer 9 (History)
   └── tb_allocation_history (AHS)     ─── 🔗 CUS, SKU, RTE, ORD
+
+Layer 10 (Price Rules · v9)
+  └── tb_price_rule (PRL)             ─── 🔗 DCG, CUS, RTE, SKU
 ```
 
 ---
@@ -248,11 +263,14 @@ flowchart TD
 
 | object_type | cnt |
 | :--- | ---: |
-| tables | **32** |
-| views | **12** |
-| procedures | **10** |
-| foreign_keys | **53** |
-| check_const | 11 |
+| tables | **34** |
+| views | **32** |
+| procedures | **11** |
+| functions | **1** |
+| triggers | 136 |
+| foreign_keys | **55** |
+| check_const | 19 |
+| indexes | 122 |
 
 และ query ตัวที่สองต้องคืน **0 แถว**:
 
@@ -271,7 +289,7 @@ SELECT name AS untrusted_fk FROM sys.foreign_keys WHERE is_not_trusted = 1;
 | 🔴 1 | **RBAC** | `tb_role`, `tb_user_role`, `tb_privilege_group`, `tb_privilege` | ทุกหน้าจอใน Design Doc มี pre-condition *"ตรวจสอบสิทธิ์การใช้งานเมนู"* แต่ปัจจุบันมีแค่ `user_level` (1 role/user) ⇒ **สร้าง Sidebar ตามสิทธิ์ไม่ได้** |
 | 🔴 2 | **History Log** | `tb_history_group`, `tb_history_log` | Spec M001/M002 บังคับเก็บประวัติทุก insert/update/delete และแสดง 5 รายการล่าสุดบนหน้าจอ |
 | 🟡 3 | **Configuration** | `tb_configuration` | `DBF0003` ต้องอ่านค่า `password fail limit` จากตารางนี้ |
-| 🔴 4 | **แม็ปส่วนลด** | `tb_discount_group_price` (SKU × กลุ่มลูกค้า), `tb_customer_sku_discount` (SKU × ลูกค้า) | legacy มีส่วนลด 4 มิติ (กลุ่มลูกค้า / เฉพาะร้าน / ทั้งสาย / เจ้าของหนังสือ) แต่ `tb_discount` เป็น campaign แบน ๆ ไม่มีมิติ product และ customer |
+| ✅ 4 | **แม็ปส่วนลด** | ~~`tb_discount_group_price`, `tb_customer_sku_discount`~~ → `tb_discount_group` + `tb_price_rule` + `UFN_RESOLVE_DISCOUNT` ใน [`SQL/SQL-PENBUN-v9.sql`](./SQL/SQL-PENBUN-v9.sql) | ทำแล้ว 26 ส.ค. 2026 — ใช้ตารางเดียวแยกมิติด้วย `rule_scope` แทนสองตาราง เพราะสองตารางไม่มีที่ให้ "ทั้งสาย" และ on-top ระดับร้านที่ไม่ผูก SKU เหตุผลเต็มอยู่ใน [DISCOUNT-MODEL.md](../DISCOUNT-MODEL.md) §3.1 · เทสต์ 10 เคสที่ [`TEST/TEST-discount-resolve.sql`](./TEST/TEST-discount-resolve.sql) |
 | 🟢 5 | **Invoice Layer** | `tb_invoice`, `tb_credit_note`, `tb_vendor_settlement` | ปัจจุบันมีแค่ช่องเก็บเลขที่ (`invoice_no`, `credit_note_no`, `settlement_no`) |
 | 🟢 6 | **Internal Transfer** | `tb_transfer_note`, `tb_transfer_item` | ใช้ `TRANSFER_IN` / `TRANSFER_OUT` ที่เตรียมไว้แล้วใน `tb_stock_movement` |
 | 🟢 7 | **Multi-Company** | `ref_company_auto` บนตาราง master | รอคำตอบว่า กทม.(21) / ตจว.(11) เป็นคนละนิติบุคคลหรือไม่ |
@@ -284,7 +302,7 @@ SELECT name AS untrusted_fk FROM sys.foreign_keys WHERE is_not_trusted = 1;
 | :---: | :--- | :--- |
 | 1 | นิตยสาร/หนังสือพิมพ์รายวันอยู่ในขอบเขตไหม? ต้อง auto-gen SKU ต่องวดหรือไม่ | `tb_product_sku` |
 | 2 | ราคาที่ใช้จริงมาจาก `tb_product` หรือ `tb_product_sku` (ซ้ำกันอยู่) | Price Engine |
-| 3 | ลำดับการคิดส่วนลด 4 แบบ — ซ้อนกันหรือทับกัน? | `tb_price_rule` |
+| 3 | ~~ลำดับการคิดส่วนลด 4 แบบ — ซ้อนกันหรือทับกัน?~~ ตอบแล้ว: ทั้งคู่ — `is_on_top = 0` แข่งกัน เจาะจงกว่าชนะ, `is_on_top = 1` บวกทับผู้ชนะ **แต่ลำดับความเจาะจงยังรอศูนย์ยืนยัน** | `tb_price_rule` (สร้างแล้ว v9) |
 | 4 | "จำนวนเล่ม/มัด" = pack size ⇒ ต้องมี UOM conversion ไหม | `tb_product.pack_qty` |
 | 5 | "แบบใบแจ้งเก็บ" ต่อร้านค้า — template รายงาน หรือกระทบ logic | Invoice Layer |
 | 6 | `credit_term_day` ตัวไหนชนะระหว่าง `tb_customer_type` กับ `tb_customer` | Invoice Layer |
