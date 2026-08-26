@@ -43,21 +43,25 @@
        ตัวอักษรจึงผ่าน validation ทั้งฝั่งเว็บและ API แล้วไปตายตอน INSERT
        กลายเป็น 500 ทั้งที่ผู้ใช้กรอกถูกตามที่ระบบบอก  50 คือค่าที่สัญญาไว้แล้ว
 
-   [5] tb_book.complimentary_qty  (อภินันท์)
+   [5] tb_book.translator  —  POST /book รับฟิลด์นี้มาตั้งแต่ v4.0.0
+       แต่ v7 ไม่มีคอลัมน์รองรับ  ใครกรอกชื่อผู้แปลจะได้ 500 ตอนบันทึก
+       ไม่ใช่ 400 ที่บอกว่าฟิลด์นี้ใช้ไม่ได้
+
+   [6] tb_book.complimentary_qty  (อภินันท์)
        legacy 7.4 ใบชำระให้เจ้าของหนังสือ และ 7.5 ใบรับเงินล่วงหน้า อ่านจำนวน
        อภินันท์จากแฟ้มหนังสือทั้งคู่  v7 ไม่มีคอลัมน์ไหนเก็บค่านี้เลย
 
-   [6] tb_users.ref_warehouse_auto  — ผู้ใช้สังกัดคลังไหน
+   [7] tb_users.ref_warehouse_auto  — ผู้ใช้สังกัดคลังไหน
        PenbunWeb พิมพ์ชื่อสาขาคงที่ไว้บนทุกหน้าจอเพราะไม่มีที่ให้อ่าน
        ใช้ tb_warehouse ที่มีอยู่แล้วแทนการสร้างตารางสาขาขึ้นมาใหม่ —
        สาขาในระบบนี้คือคลัง
 
-   [7] posted_date ให้ใบรับคืนและใบส่งคืนคู่ค้า
+   [8] posted_date ให้ใบรับคืนและใบส่งคืนคู่ค้า
        v7 ประทับเวลาโพสต์ไว้เฉพาะใบรับ (posted_date) และใบส่ง (delivered_date)
        อีกสองเอกสารไม่ได้บันทึกไว้เลย  จะรู้ว่าโพสต์เมื่อไรต้องเดาจาก update_date
        ซึ่งการแก้ไขครั้งถัดไปทับทิ้ง
 
-   [8] USP_POST_* จองล็อกเอง
+   [9] USP_POST_* จองล็อกเอง
        v7 พึ่งให้ PenbunAPI จอง sp_getapplock ก่อนเรียก proc ทุกครั้ง  ใครที่
        รัน proc จาก SSMS หรือ job จึงข้ามการป้องกันทั้งหมดและทำให้สต็อกติดลบได้
        v8 ย้ายการจองล็อกเข้าไปใน proc  เจ้าของกฎจึงเป็นฐานข้อมูล
@@ -615,6 +619,7 @@ CREATE TABLE [dbo].[tb_book](
 	[ref_book_type_auto] [int] NULL,
 	[book_name] [nvarchar](255) NOT NULL,
 	[author] [nvarchar](255) NULL,
+	[translator] [nvarchar](200) NULL,
 	[isbn] [nvarchar](20) NULL,
 	[publisher_name] [nvarchar](200) NULL,
 	[page_count] [int] NULL,
@@ -3343,7 +3348,7 @@ GO
    จึงเปิดมาว่างทุกครั้งที่แก้ไข กลายเป็นการลบค่าทิ้งโดยผู้ใช้ไม่รู้ตัว */
 CREATE VIEW [dbo].[vw_book] AS
 SELECT  b.autoID AS book_auto,
-        b.book_id, b.book_name, b.author, b.isbn, b.publisher_name, b.page_count,
+        b.book_id, b.book_name, b.author, b.translator, b.isbn, b.publisher_name, b.page_count,
         b.cover_price, b.net_price, b.vendor_discount_percent, b.customer_discount_percent,
         b.complimentary_qty, b.effective_date, b.description,
         p.product_id, p.product_code, p.product_name,
