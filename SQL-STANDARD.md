@@ -2,11 +2,11 @@
 # 📘 PenbunSQL Standard Specification v7.0
 
 **Project:** Penbun System (Distribution Center Database)
-**Version:** 7.0.0
+**Schema Version:** 7.0.0 · **Document Revision:** 7.0.2
 **Status:** Stable / Standard Compliant
-**Effective Date:** 2026-08-21
+**Effective Date:** 2026-08-21 · **Last Revised:** 2026-08-25
 **Architect:** PlayDevX
-**Reference Script:** [`docs/SQL-PENBUN-v7.sql`](./docs/SQL-PENBUN-v7.sql)
+**Reference Script:** [`SQL/SQL-PENBUN-v7.sql`](./SQL/SQL-PENBUN-v7.sql)
 
 -----
 
@@ -339,7 +339,37 @@ END
 
 **เหตุผล:** View แปลง `ref_*_auto` → Business ID ให้แล้ว ทำให้ API ไม่ต้องรู้เรื่อง `autoID` และเปลี่ยน schema ภายในได้โดยไม่กระทบ API
 
-### 5.1 🆕 Ledger vs Cache
+### 5.1 🆕 ผลข้างเคียงของ Trigger ต่อผู้เรียก — `OUTPUT` ต้องมี `INTO`
+
+ทุกตารางในมาตรฐานนี้มี `AFTER INSERT` trigger เติม Business ID (127 ตัวใน 32 ตาราง) SQL Server
+จึงปฏิเสธคำสั่งที่มี `OUTPUT` โดยไม่มี `INTO` บนตารางเหล่านี้ทั้งหมด
+
+```
+Msg 334 — The target table 'dbo.tb_xxx' of the DML statement cannot have any enabled
+triggers if the statement contains an OUTPUT clause without INTO clause.
+```
+
+```sql
+-- ✅ ถูก
+DECLARE @ins TABLE (autoID INT);
+INSERT INTO dbo.tb_vendor_type (type_name, update_by)
+     OUTPUT INSERTED.autoID INTO @ins
+     VALUES (N'สำนักพิมพ์', N'admin');
+SELECT autoID FROM @ins;
+
+-- ❌ Msg 334 ทุกครั้ง
+INSERT INTO dbo.tb_vendor_type (...) OUTPUT INSERTED.autoID VALUES (...);
+```
+
+และแม้จะใส่ `INTO` แล้ว ก็ยัง `OUTPUT` คอลัมน์ Business ID ไม่ได้ เพราะ trigger ทำงานหลัง `INSERT`
+ค่าที่ได้จะว่างเสมอ **ต้องอ่านแถวกลับจาก View ในทรานแซกชันเดียวกัน** โดยใช้ `autoID` ที่ได้มา
+
+> ⚠️ ข้อนี้เป็นสัญญาที่ผู้เรียกทุกรายพึ่งพาอยู่ ถ้าวันใดถอด trigger ออกจากตารางใด
+> Business ID จะไม่ถูกเติม — ห้ามปิด trigger เพื่อแก้ปัญหาเฉพาะหน้า
+
+-----
+
+### 5.2 🆕 Ledger vs Cache
 
 | ตาราง | ประเภท | Rebuild ด้วย |
 | :--- | :--- | :--- |
@@ -497,6 +527,17 @@ ALTER TABLE [dbo].[tb_order] WITH CHECK ADD CONSTRAINT [CK_tb_order_status]
 -----
 
 ## 📝 Change Log
+
+### v7.0.2 (25/08/2026) — Trigger Side Effects on Callers
+
+จากบั๊กที่พบตอนใช้งานจริง: `POST /api/v2/vendor-type` คืน 500 ด้วย Msg 334
+สาเหตุคือ `INSERT ... OUTPUT INSERTED.autoID` ไม่มี `INTO` ซึ่ง SQL Server ปฏิเสธบนตารางที่มี trigger
+เปิดอยู่ — แปลว่าใช้ไม่ได้กับ **ทุกตาราง** ในมาตรฐานนี้ ไม่ใช่แค่ `tb_vendor_type`
+
+* **Added — 5.1 ผลข้างเคียงของ Trigger ต่อผู้เรียก:** ระบุกฎ `OUTPUT` ต้องมี `INTO` พร้อมข้อความ error จริง
+  ตัวอย่างที่ถูกและผิด และย้ำว่าห้ามปิด trigger เพื่อแก้ปัญหาเฉพาะหน้า
+* **Renumbered:** Ledger vs Cache ย้ายจาก 5.1 → 5.2
+* **Fixed:** ลิงก์ไปสคริปต์ v7 ในเอกสารทั้งสามไฟล์ชี้ `docs/` ซึ่งไม่มีอยู่จริง แก้เป็น `SQL/`
 
 ### v7.0.1 (22/08/2026) — Concurrency Specification
 

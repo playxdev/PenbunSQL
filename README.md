@@ -4,7 +4,7 @@
 
 **PenbunSQL** คือฐานข้อมูล Core System ของ **Penbun System** เวอร์ชัน 7.0.0 ถูกออกแบบด้วยสถาปัตยกรรม **"Hybrid Core"** รองรับทั้งธุรกิจซื้อมาขายไป (Trading), ธุรกิจบริการ (Service) และ **ธุรกิจฝากขาย (Consignment)** บนโครงสร้างการกระจายสินค้าแบบศูนย์กลาง (Centralized Distribution)
 
-> ⚠️ **v7 เป็น Full Rebuild** — `docs/SQL-PENBUN-v7.sql` มี `DROP` ทั้งฐานข้อมูลใน SECTION 1
+> ⚠️ **v7 เป็น Full Rebuild** — `SQL/SQL-PENBUN-v7.sql` มี `DROP` ทั้งฐานข้อมูลใน SECTION 1
 > ห้ามรันร่วมกับ v5 / v6 และต้องสำรองข้อมูลก่อนเสมอ
 
 -----
@@ -16,13 +16,20 @@
   * **`README.md`**: (ไฟล์นี้) ภาพรวมระบบ, Business Flow และ Concept หลัก
   * **`SQL-STANDARD.md`**: กฎเหล็กการสร้างตาราง, Naming Convention, และ Audit Rules
   * **`SQL-TABLE.md`**: ลำดับการสร้างตาราง (Execution Order) และ Dependency Map
-  * **`docs/SQL-PENBUN-v7.sql`**: Full standalone build (32 ตาราง, 4,107 บรรทัด)
+  * **`SQL/SQL-PENBUN-v7.sql`**: Full standalone build (32 ตาราง, 4,111 บรรทัด)
+
+เอกสารของโปรเจกต์พี่น้องที่กินสัญญาจากฐานข้อมูลนี้:
+
+  * **`../PenbunAPI/README.md`**: เครื่องยนต์ CRUD และเอกสาร · แผนที่ endpoint · รูปแบบ response
+  * **`../PenbunAPI/docs/DATABASE-CONTRACT.md`**: สิ่งที่ API พึ่งพาจากฐานข้อมูลนี้โดยตรง — **อ่านก่อนแก้ View หรือ Trigger**
+  * **`../PenbunWeb/README.md`**: หน้าจอ และเครื่องยนต์ master data ฝั่งเว็บ
+  * **`../PENBUN-TODO.md`**: งานที่เหลือของทั้งระบบ
 
 -----
 
 ## 🚀 What's New in v7.0.0
 
-Full schema: `docs/SQL-PENBUN-v7.sql` — **32 ตาราง**, standalone, ไม่มี `ALTER`
+Full schema: `SQL/SQL-PENBUN-v7.sql` — **32 ตาราง**, standalone, ไม่มี `ALTER`
 
 | หมวด | v5.0.0 | **v7.0.0** |
 | :--- | ---: | ---: |
@@ -231,7 +238,7 @@ Legacy มี **3 ระบบซ้อนกัน** — v7 เก็บได�
 
 ## 💾 Table Catalog (By Layer)
 
-ลำดับใน `docs/SQL-PENBUN-v7.sql` คือ Dependency Order — ห้ามสลับ เพราะ v7 มี Foreign Key จริง
+ลำดับใน `SQL/SQL-PENBUN-v7.sql` คือ Dependency Order — ห้ามสลับ เพราะ v7 มี Foreign Key จริง
 
 ### Layer 0: System
 
@@ -432,7 +439,7 @@ tables 32 | views 12 | procedures 10 | foreign_keys 53
 ### 7. เพิ่มผู้ใช้งานลง `tb_users` (bcrypt)
 
 `user_password` เก็บเป็น **bcrypt hash เท่านั้น** — ห้ามเก็บ plaintext และห้ามใช้ `HASHBYTES()` ของ SQL Server
-(PenbunAPI ตรวจรหัสผ่านด้วย `bcrypt.CompareHashAndPassword` จาก `golang.org/x/crypto/bcrypt` ใน `controllers/auth.go`)
+(PenbunAPI ตรวจรหัสผ่านด้วย `bcrypt.CompareHashAndPassword` จาก `golang.org/x/crypto/bcrypt` ใน `internal/domain/auth/service.go`)
 
 **1) ติดตั้งเครื่องมือสร้าง hash**
 
@@ -537,13 +544,29 @@ v7 เป็น **Full Rebuild** ไม่ใช่ incremental — ถ้าม
 | `tb_discount.discount_type_id` | `ref_discount_type_auto` |
 | `tb_book` (ตารางลอย) | ต้องผูก `ref_product_auto` ให้ทุกแถว |
 
-### สิ่งที่ PenbunAPI ต้องแก้
+### สิ่งที่ PenbunAPI ต้องแก้ — ทำครบแล้วใน v4.0.0
 
-  * `INSERT` ต้องส่ง `ref_*_auto` — ทำ helper `resolveAuto(table, businessID)` ตัวเดียวใช้ได้ทั้งระบบ
-  * `SELECT` ให้ยิงที่ View
-  * ยืนยันเอกสารให้เรียก `USP_POST_*` ไม่ให้ Go จัดลำดับเอง
-  * `update_by` ต้องมาจาก **JWT claim** ไม่ใช่ query string (v5 มีค่า `'UNKNOWN'` หลุดเข้าฐานจริง)
-  * เลิก endpoint hard delete (DB แปลงให้เป็น soft delete แล้ว แต่ควรถอดออกให้ชัด)
+| ข้อ | สถานะใน PenbunAPI v4.0.0 |
+| :--- | :--- |
+| `INSERT` ต้องส่ง `ref_*_auto` | ✅ `repository.Resolver` แปลง Business ID → `autoID` ที่เดียว พร้อม cache |
+| `SELECT` ให้ยิงที่ View | ✅ ทุก descriptor ระบุ `Source` — 12 ตัวที่ v7 ยังไม่มี View ใช้ derived table และคอมเมนต์ `TEMP:` กำกับไว้ |
+| ยืนยันเอกสารให้เรียก `USP_POST_*` | ✅ `domain/document` เรียก Stored Procedure ไม่จัดลำดับเอง |
+| `update_by` มาจาก JWT claim | ✅ อ่านจาก token เสมอ ไม่รับจาก body หรือ query string |
+| เลิก endpoint hard delete | ✅ `DELETE` ทุกเส้นทางเป็น soft delete เส้นทางรุ่นก่อนคืน `410 ENDPOINT_REMOVED` |
+
+### ข้อจำกัดของ v7 ที่ PenbunAPI ต้องเดินอ้อม
+
+  * **`OUTPUT` ต้องมี `INTO` เสมอ** — ทั้ง 32 ตารางมี `AFTER INSERT` trigger เติม Business ID
+    SQL Server จึงปฏิเสธ `OUTPUT` ที่ไม่มี `INTO` (Msg 334) API แก้ด้วย
+    `repository.InsertReturningAuto` ที่ `OUTPUT INSERTED.autoID INTO @pb_inserted`
+    แล้วอ่านแถวกลับจาก View ในทรานแซกชันเดียวกัน
+  * **12 ตารางยังไม่มี View** — `tb_warehouse` `tb_product_group` `tb_route` `tb_company` `tb_discount`
+    และตารางอ้างอิงอีก 7 ตัว ต้องเพิ่มใน v8 เพื่อให้ API เลิกใช้ derived table
+  * **`vw_customer_route` ไม่คืน `is_active` / `update_date`** หน้าจอจึงกรองสถานะและค้นหาไม่ได้
+  * **`vw_book` ไม่คืน `description` และ barcode / น้ำหนัก / ขนาดบรรจุ ของ product** ช่องกรอกเหล่านี้
+    จึงเปิดมาว่างตอนแก้ไข
+  * **Stored Procedure ยังไม่จองล็อกเอง** ตอนนี้ล็อกอยู่ฝั่ง API เท่านั้น
+    คนที่เรียก `USP_POST_*` ตรงจากเครื่องมือจัดการฐานข้อมูลจึงข้ามการป้องกันไปได้
 
 -----
 
@@ -562,8 +585,16 @@ v7 เป็น **Full Rebuild** ไม่ใช่ incremental — ถ้าม
 
 ## 🚧 Roadmap (v8)
 
+เรียงตามลำดับที่ปิดงานได้จริง งานสามข้อแรกคือสิ่งที่ PenbunAPI และ PenbunWeb รออยู่ตอนนี้
+รายละเอียดเต็มอยู่ใน `../PENBUN-TODO.md` หัวข้อ 2
+
 | หัวข้อ | รายละเอียด |
 | :--- | :--- |
+| **View ที่ยังขาด 12 ตัว** | `vw_warehouse` `vw_product_group` `vw_route` `vw_company` `vw_discount` + ตารางอ้างอิง 7 ตัว — API ใช้ derived table รออยู่ ทุกจุดมีคอมเมนต์ `TEMP:` กำกับ |
+| **View ที่คืนคอลัมน์ไม่ครบ** | `vw_customer_route` ต้องเพิ่ม `is_active` / `update_date` · `vw_book` ต้องเพิ่ม `description` และ barcode / น้ำหนัก / ขนาดบรรจุ จาก `tb_product` |
+| **ล็อกใน `USP_POST_*`** | ย้ายการจองล็อกสต็อกเข้าไปในกระบวนงาน เรียงตาม `autoID` จากน้อยไปมาก เพื่อให้คนที่เรียกตรงจาก SSMS ได้รับการป้องกันด้วย |
+| **View ของเอกสารอีก 6 ตัว** | ตอนนี้มีแค่ `vw_order_header` / `vw_order_item` — ใบรับสินค้า ใบรับคืน และใบส่งคืนคู่ค้า ยังไม่มี |
+| **กระบวนงานกลับรายการ** | `USP_REVERSE_*` สำหรับเอกสารที่โพสต์ไปแล้ว ปัจจุบันต้องใช้ `/stock/adjust` แก้มือ |
 | **Price & Discount Engine** | `tb_price_rule` — ราคาหลายชั้น (product × customer × route) แทน `tb_discount` ที่เป็น campaign แบน ๆ |
 | **RBAC** | `tb_role` / `tb_user_role` / `tb_privilege_group` / `tb_privilege` ตาม Design Doc M002 (ปัจจุบันมีแค่ `user_level` รองรับ 1 role/user) |
 | **History Log** | `tb_history_group` / `tb_history_log` + `tb_configuration` ตาม Spec M001/M002 |

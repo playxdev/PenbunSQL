@@ -2,7 +2,7 @@
 
 เอกสารนี้ระบุลำดับการสร้าง Object ในฐานข้อมูล PenbunSQL v7.0.0 และติดตามสถานะการพัฒนา
 
-**SQL Script:** [`docs/SQL-PENBUN-v7.sql`](./docs/SQL-PENBUN-v7.sql) — standalone full build, 32 ตาราง
+**SQL Script:** [`SQL/SQL-PENBUN-v7.sql`](./SQL/SQL-PENBUN-v7.sql) — standalone full build, 32 ตาราง
 
 > **🚨 คำเตือน 1:** v7 เป็น **Full Rebuild** — SECTION 1 ของ script คือ `DROP` ทั้งฐานข้อมูล **สำรองข้อมูลก่อนรันเสมอ**
 >
@@ -268,6 +268,7 @@ SELECT name AS untrusted_fk FROM sys.foreign_keys WHERE is_not_trusted = 1;
 
 | Priority | Module | ตารางที่ต้องเพิ่ม | Blocker |
 | :---: | :--- | :--- | :--- |
+| 🔴 0 | **View ที่ยังขาด** | ไม่ต้องเพิ่มตาราง — เพิ่ม View 12 ตัว: `vw_warehouse` `vw_product_group` `vw_route` `vw_company` `vw_discount` + ตารางอ้างอิง 7 ตัว | PenbunAPI ใช้ derived table แทนอยู่ (คอมเมนต์ `TEMP:` ทุกจุด) ผิดกฎ §5 ของ `SQL-STANDARD.md` ที่บังคับให้อ่านผ่าน View · และ `vw_customer_route` / `vw_book` คืนคอลัมน์ไม่ครบ ทำให้หน้าจอกรองสถานะและแก้ไขข้อมูลบางช่องไม่ได้ |
 | 🔴 1 | **RBAC** | `tb_role`, `tb_user_role`, `tb_privilege_group`, `tb_privilege` | ทุกหน้าจอใน Design Doc มี pre-condition *"ตรวจสอบสิทธิ์การใช้งานเมนู"* แต่ปัจจุบันมีแค่ `user_level` (1 role/user) ⇒ **สร้าง Sidebar ตามสิทธิ์ไม่ได้** |
 | 🔴 2 | **History Log** | `tb_history_group`, `tb_history_log` | Spec M001/M002 บังคับเก็บประวัติทุก insert/update/delete และแสดง 5 รายการล่าสุดบนหน้าจอ |
 | 🟡 3 | **Configuration** | `tb_configuration` | `DBF0003` ต้องอ่านค่า `password fail limit` จากตารางนี้ |
@@ -297,5 +298,9 @@ SELECT name AS untrusted_fk FROM sys.foreign_keys WHERE is_not_trusted = 1;
 > Database v7 ครอบคลุม Layer 0-9 ครบแล้ว (Master + Route + Stock + Transaction + History)
 > เทียบกับ v5 ที่มีแค่ Layer 0-5 (Master อย่างเดียว) และไม่มี Foreign Key เลย
 >
-> ก่อนเริ่มเขียน PenbunAPI ใหม่ อ่าน **`SQL-STANDARD.md` หัวข้อ 4.3 และ 5** ให้จบก่อน
-> เพราะ v7 เปลี่ยนวิธีอ้างอิงข้ามตาราง (`ref_*_auto`) และเปลี่ยนช่องทางอ่าน/เขียน (View / Procedure)
+> PenbunAPI v4.0.0 เขียนตาม v7 ครบแล้ว — ก่อนแก้ View, Trigger หรือ Procedure ตัวใด
+> ให้อ่าน **`SQL-STANDARD.md` หัวข้อ 4.3 · 5 · 5.1** และ **`../PenbunAPI/docs/DATABASE-CONTRACT.md`** ให้จบก่อน
+> เพราะ v7 เปลี่ยนวิธีอ้างอิงข้ามตาราง (`ref_*_auto`) เปลี่ยนช่องทางอ่าน/เขียน (View / Procedure)
+> และ trigger ที่เติม Business ID เป็นเงื่อนไขที่ผู้เรียกทุกรายพึ่งพาอยู่
+>
+> งานที่เหลือของทั้งระบบอยู่ใน **`../PENBUN-TODO.md`**
