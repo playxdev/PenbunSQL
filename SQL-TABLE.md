@@ -1,10 +1,10 @@
-# 🏗️ PenbunSQL v7.0.0 — Execution Order & Development Roadmap
+# 🏗️ PenbunSQL v8.0.0 — Execution Order & Development Roadmap
 
-เอกสารนี้ระบุลำดับการสร้าง Object ในฐานข้อมูล PenbunSQL v7.0.0 และติดตามสถานะการพัฒนา
+เอกสารนี้ระบุลำดับการสร้าง Object ในฐานข้อมูล PenbunSQL v8.0.0 และติดตามสถานะการพัฒนา
 
-**SQL Script:** [`SQL/SQL-PENBUN-v7.sql`](./SQL/SQL-PENBUN-v7.sql) — standalone full build, 32 ตาราง
+**SQL Script:** [`SQL/SQL-PENBUN-v8.sql`](./SQL/SQL-PENBUN-v8.sql) — standalone full build, 32 ตาราง · 30 View
 
-> **🚨 คำเตือน 1:** v7 เป็น **Full Rebuild** — SECTION 1 ของ script คือ `DROP` ทั้งฐานข้อมูล **สำรองข้อมูลก่อนรันเสมอ**
+> **🚨 คำเตือน 1:** v8 เป็น **Full Rebuild** — SECTION 1 ของ script คือ `DROP` ทั้งฐานข้อมูล **สำรองข้อมูลก่อนรันเสมอ**
 >
 > **🚨 คำเตือน 2:** ห้ามสลับ Execution Order เด็ดขาด
 > v5 เคยเตือนเรื่องนี้ทั้งที่**ยังไม่มี Foreign Key จริงสักตัว** — v7 มี **53 ตัว** คำเตือนนี้จึงเพิ่งมีผลจริงตั้งแต่เวอร์ชันนี้ สลับลำดับ = `ALTER TABLE ... ADD CONSTRAINT` จะ error ทันที
@@ -34,7 +34,7 @@
 | Order | Status | Table | Prefix | FK Dependencies |
 | :--- | :---: | :--- | :---: | :--- |
 | 1 | ✅ | `tb_reference` | REF | — *(PK = `ref_id`, ไม่มี Business ID)* |
-| 2 | ✅ | `tb_users` | USR | — |
+| 2 | ✅ | `tb_users` | USR | `tb_warehouse` (v8 — สาขาที่ผู้ใช้สังกัด, NULL ได้) |
 
 ---
 
@@ -162,12 +162,12 @@
 
 ---
 
-## 🗺️ Dependency Map (v7.0.0)
+## 🗺️ Dependency Map (v8.0.0)
 
 ```
 Layer 0 (System)
   ├── tb_reference (REF)              ─── Running Number, PK = ref_id
-  └── tb_users (USR)                  ─── + Auth fields (M001)
+  └── tb_users (USR)                  ─── + Auth fields (M001) · v8: ref_warehouse_auto → tb_warehouse
 
 Layer 1 (Lookup — ไม่มี FK)
   ├── tb_company (CPN)
@@ -264,15 +264,14 @@ SELECT name AS untrusted_fk FROM sys.foreign_keys WHERE is_not_trusted = 1;
 
 ---
 
-## 🏗️ Roadmap (v8)
+## 🏗️ Roadmap (v9)
 
 | Priority | Module | ตารางที่ต้องเพิ่ม | Blocker |
 | :---: | :--- | :--- | :--- |
-| 🔴 0 | **View ที่ยังขาด** | ไม่ต้องเพิ่มตาราง — เพิ่ม View 12 ตัว: `vw_warehouse` `vw_product_group` `vw_route` `vw_company` `vw_discount` + ตารางอ้างอิง 7 ตัว | PenbunAPI ใช้ derived table แทนอยู่ (คอมเมนต์ `TEMP:` ทุกจุด) ผิดกฎ §5 ของ `SQL-STANDARD.md` ที่บังคับให้อ่านผ่าน View · และ `vw_customer_route` / `vw_book` คืนคอลัมน์ไม่ครบ ทำให้หน้าจอกรองสถานะและแก้ไขข้อมูลบางช่องไม่ได้ |
 | 🔴 1 | **RBAC** | `tb_role`, `tb_user_role`, `tb_privilege_group`, `tb_privilege` | ทุกหน้าจอใน Design Doc มี pre-condition *"ตรวจสอบสิทธิ์การใช้งานเมนู"* แต่ปัจจุบันมีแค่ `user_level` (1 role/user) ⇒ **สร้าง Sidebar ตามสิทธิ์ไม่ได้** |
 | 🔴 2 | **History Log** | `tb_history_group`, `tb_history_log` | Spec M001/M002 บังคับเก็บประวัติทุก insert/update/delete และแสดง 5 รายการล่าสุดบนหน้าจอ |
 | 🟡 3 | **Configuration** | `tb_configuration` | `DBF0003` ต้องอ่านค่า `password fail limit` จากตารางนี้ |
-| 🟡 4 | **Price & Discount Engine** | `tb_price_rule` | legacy มีส่วนลด 4 มิติ (กลุ่มลูกค้า / เฉพาะร้าน / ทั้งสาย / เจ้าของหนังสือ) แต่ `tb_discount` เป็น campaign แบน ๆ ไม่มีมิติ product และ customer |
+| 🔴 4 | **แม็ปส่วนลด** | `tb_discount_group_price` (SKU × กลุ่มลูกค้า), `tb_customer_sku_discount` (SKU × ลูกค้า) | legacy มีส่วนลด 4 มิติ (กลุ่มลูกค้า / เฉพาะร้าน / ทั้งสาย / เจ้าของหนังสือ) แต่ `tb_discount` เป็น campaign แบน ๆ ไม่มีมิติ product และ customer |
 | 🟢 5 | **Invoice Layer** | `tb_invoice`, `tb_credit_note`, `tb_vendor_settlement` | ปัจจุบันมีแค่ช่องเก็บเลขที่ (`invoice_no`, `credit_note_no`, `settlement_no`) |
 | 🟢 6 | **Internal Transfer** | `tb_transfer_note`, `tb_transfer_item` | ใช้ `TRANSFER_IN` / `TRANSFER_OUT` ที่เตรียมไว้แล้วใน `tb_stock_movement` |
 | 🟢 7 | **Multi-Company** | `ref_company_auto` บนตาราง master | รอคำตอบว่า กทม.(21) / ตจว.(11) เป็นคนละนิติบุคคลหรือไม่ |
@@ -295,10 +294,10 @@ SELECT name AS untrusted_fk FROM sys.foreign_keys WHERE is_not_trusted = 1;
 ---
 
 > 📝 **Note for Developer:**
-> Database v7 ครอบคลุม Layer 0-9 ครบแล้ว (Master + Route + Stock + Transaction + History)
+> Database v8 ครอบคลุม Layer 0-9 ครบแล้ว (Master + Route + Stock + Transaction + History)
 > เทียบกับ v5 ที่มีแค่ Layer 0-5 (Master อย่างเดียว) และไม่มี Foreign Key เลย
 >
-> PenbunAPI v4.0.0 เขียนตาม v7 ครบแล้ว — ก่อนแก้ View, Trigger หรือ Procedure ตัวใด
+> PenbunAPI v4.0.0 เขียนตาม v8 ครบแล้ว — ก่อนแก้ View, Trigger หรือ Procedure ตัวใด
 > ให้อ่าน **`SQL-STANDARD.md` หัวข้อ 4.3 · 5 · 5.1** และ **`../PenbunAPI/docs/DATABASE-CONTRACT.md`** ให้จบก่อน
 > เพราะ v7 เปลี่ยนวิธีอ้างอิงข้ามตาราง (`ref_*_auto`) เปลี่ยนช่องทางอ่าน/เขียน (View / Procedure)
 > และ trigger ที่เติม Business ID เป็นเงื่อนไขที่ผู้เรียกทุกรายพึ่งพาอยู่

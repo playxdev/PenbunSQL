@@ -1,11 +1,11 @@
 -----
 
-# 📚 PenbunSQL — Book Distribution Center (v7.0.0)
+# 📚 PenbunSQL — Book Distribution Center (v8.0.0)
 
-**PenbunSQL** คือฐานข้อมูล Core System ของ **Penbun System** เวอร์ชัน 7.0.0 ถูกออกแบบด้วยสถาปัตยกรรม **"Hybrid Core"** รองรับทั้งธุรกิจซื้อมาขายไป (Trading), ธุรกิจบริการ (Service) และ **ธุรกิจฝากขาย (Consignment)** บนโครงสร้างการกระจายสินค้าแบบศูนย์กลาง (Centralized Distribution)
+**PenbunSQL** คือฐานข้อมูล Core System ของ **Penbun System** เวอร์ชัน 8.0.0 ถูกออกแบบด้วยสถาปัตยกรรม **"Hybrid Core"** รองรับทั้งธุรกิจซื้อมาขายไป (Trading), ธุรกิจบริการ (Service) และ **ธุรกิจฝากขาย (Consignment)** บนโครงสร้างการกระจายสินค้าแบบศูนย์กลาง (Centralized Distribution)
 
-> ⚠️ **v7 เป็น Full Rebuild** — `SQL/SQL-PENBUN-v7.sql` มี `DROP` ทั้งฐานข้อมูลใน SECTION 1
-> ห้ามรันร่วมกับ v5 / v6 และต้องสำรองข้อมูลก่อนเสมอ
+> ⚠️ **v8 เป็น Full Rebuild** — `SQL/SQL-PENBUN-v8.sql` มี `DROP` ทั้งฐานข้อมูลใน SECTION 1
+> ห้ามรันร่วมกับ v5 / v6 / v7 และต้องสำรองข้อมูลก่อนเสมอ
 
 -----
 
@@ -16,7 +16,8 @@
   * **`README.md`**: (ไฟล์นี้) ภาพรวมระบบ, Business Flow และ Concept หลัก
   * **`SQL-STANDARD.md`**: กฎเหล็กการสร้างตาราง, Naming Convention, และ Audit Rules
   * **`SQL-TABLE.md`**: ลำดับการสร้างตาราง (Execution Order) และ Dependency Map
-  * **`SQL/SQL-PENBUN-v7.sql`**: Full standalone build (32 ตาราง, 4,111 บรรทัด)
+  * **`SQL/SQL-PENBUN-v8.sql`**: Full standalone build (32 ตาราง · 30 View · 11 Procedure, 4,481 บรรทัด)
+  * **`SQL/SQL-PENBUN-v7.sql`**: รุ่นก่อน เก็บไว้อ้างอิงเท่านั้น
 
 เอกสารของโปรเจกต์พี่น้องที่กินสัญญาจากฐานข้อมูลนี้:
 
@@ -27,9 +28,30 @@
 
 -----
 
+## 🚀 What's New in v8.0.0
+
+Full schema: `SQL/SQL-PENBUN-v8.sql` — **32 ตาราง · 30 View · 11 Procedure**
+
+v8 ไม่เพิ่มและไม่ลบตารางแม้แต่ตัวเดียว ทั้งหมดคือการปิดช่องว่างระหว่างสิ่งที่ฐานข้อมูลให้
+กับสิ่งที่ PenbunAPI ต้องเขียนเอง
+
+| # | เปลี่ยน | ปิดช่องอะไร |
+| :--- | :--- | :--- |
+| 1 | **View ใหม่ 18 ตัว** (12 master + 6 เอกสาร) รวมเป็น 30 | API เคยฝัง `SELECT ... FROM dbo.tb_...` ไว้ในโค้ด Go 9 จุด กำกับด้วย `TEMP:` นิยาม Read Model จึงอยู่นอกฐานข้อมูล |
+| 2 | `vw_customer_route` คืน `description` + audit ครบ 4 | หน้าจอไม่มีคอลัมน์สถานะและกรองไม่ได้ ต้องประกาศ `audit:false` ฝั่งเว็บเพื่อเลี่ยง |
+| 3 | `vw_book` คืน `book_description` + `barcode` / `weight_kg` / `pack_qty` | `POST /book` รับค่าเหล่านี้อยู่แล้วแต่ไม่คืนตอนอ่าน ช่องจึงเปิดมาว่างและลบค่าทิ้งตอนบันทึก |
+| 4 | `doc_no` 30 → 50 ทั้งสี่เอกสาร | ตรงกับ `MaxLen` ที่ API ประกาศ ค่ายาว 31-50 เคยผ่าน validation แล้วตายที่ `INSERT` |
+| 5 | `tb_book.translator` | `POST /book` รับมาตั้งแต่ v4.0.0 โดยไม่มีคอลัมน์รองรับ |
+| 6 | `tb_book.complimentary_qty` (อภินันท์) | legacy 7.4 / 7.5 อ่านจากแฟ้มหนังสือ v7 ไม่มีที่เก็บ |
+| 7 | `tb_users.ref_warehouse_auto` | เว็บพิมพ์ชื่อสาขาคงที่ไว้ทุกหน้าจอเพราะไม่มีที่ให้อ่าน — สาขาในระบบนี้คือคลัง |
+| 8 | `posted_date` ให้ใบรับคืน + ใบส่งคืนคู่ค้า | สองเอกสารนี้ไม่บันทึกเลยว่าโพสต์เมื่อไร |
+| 9 | `USP_LOCK_STOCK_KEY` + `USP_POST_*` จองล็อกเอง | เดิมล็อกอยู่ฝั่ง API เท่านั้น คนรัน proc จาก SSMS ข้ามการป้องกันได้ |
+
+-----
+
 ## 🚀 What's New in v7.0.0
 
-Full schema: `SQL/SQL-PENBUN-v7.sql` — **32 ตาราง**, standalone, ไม่มี `ALTER`
+Full schema: `SQL/SQL-PENBUN-v7.sql` — **32 ตาราง**, standalone, ไม่มี `ALTER` (รุ่นก่อน)
 
 | หมวด | v5.0.0 | **v7.0.0** |
 | :--- | ---: | ---: |
@@ -238,7 +260,7 @@ Legacy มี **3 ระบบซ้อนกัน** — v7 เก็บได�
 
 ## 💾 Table Catalog (By Layer)
 
-ลำดับใน `SQL/SQL-PENBUN-v7.sql` คือ Dependency Order — ห้ามสลับ เพราะ v7 มี Foreign Key จริง
+ลำดับใน `SQL/SQL-PENBUN-v8.sql` คือ Dependency Order — ห้ามสลับ เพราะมี Foreign Key จริง
 
 ### Layer 0: System
 
@@ -526,9 +548,17 @@ UPDATE dbo.tb_users
  WHERE user_name = N'somchai';
 ```
 
-> 🔄 ต้องการล้างตารางจริง ๆ ให้ rebuild ทั้งฐานข้อมูลด้วย `SQL/SQL-PENBUN-v7.sql` (SECTION 1 มี `DROP` อยู่แล้ว) — อย่าล้างเฉพาะ `tb_users` เพราะ `tb_reference` จะไม่ sync
+> 🔄 ต้องการล้างตารางจริง ๆ ให้ rebuild ทั้งฐานข้อมูลด้วย `SQL/SQL-PENBUN-v8.sql` (SECTION 1 มี `DROP` อยู่แล้ว) — อย่าล้างเฉพาะ `tb_users` เพราะ `tb_reference` จะไม่ sync
 
 -----
+
+## 🔄 Migration Note
+
+**v7 → v8** ไม่มีการลบหรือเปลี่ยนชนิดคอลัมน์เดิม มีแต่การเพิ่ม — ใครที่มีข้อมูลจริงอยู่แล้ว
+เขียน `ALTER TABLE ... ADD` สี่คอลัมน์ (`tb_book.translator` · `tb_book.complimentary_qty` ·
+`tb_users.ref_warehouse_auto` · `posted_date` สองตาราง), ขยาย `doc_no` เป็น `nvarchar(50)`,
+แล้ว `CREATE VIEW` กับ `CREATE OR ALTER PROCEDURE` ตาม SECTION 9-10 ก็พอ ไม่ต้อง rebuild
+ทั้งฐาน — สคริปต์ v8 ทำเป็น full rebuild เพราะรุ่นนี้ยังไม่มีข้อมูล production
 
 ## 🔄 Migration Note (v5 → v7)
 
@@ -549,28 +579,28 @@ v7 เป็น **Full Rebuild** ไม่ใช่ incremental — ถ้าม
 | ข้อ | สถานะใน PenbunAPI v4.0.0 |
 | :--- | :--- |
 | `INSERT` ต้องส่ง `ref_*_auto` | ✅ `repository.Resolver` แปลง Business ID → `autoID` ที่เดียว พร้อม cache |
-| `SELECT` ให้ยิงที่ View | ✅ ทุก descriptor ระบุ `Source` — 12 ตัวที่ v7 ยังไม่มี View ใช้ derived table และคอมเมนต์ `TEMP:` กำกับไว้ |
+| `SELECT` ให้ยิงที่ View | ✅ ทุก descriptor และทุกเอกสารชี้ View ตั้งแต่ v8 — ไม่มี derived table เหลือในโค้ดแล้ว |
 | ยืนยันเอกสารให้เรียก `USP_POST_*` | ✅ `domain/document` เรียก Stored Procedure ไม่จัดลำดับเอง |
 | `update_by` มาจาก JWT claim | ✅ อ่านจาก token เสมอ ไม่รับจาก body หรือ query string |
 | เลิก endpoint hard delete | ✅ `DELETE` ทุกเส้นทางเป็น soft delete เส้นทางรุ่นก่อนคืน `410 ENDPOINT_REMOVED` |
 
-### ข้อจำกัดของ v7 ที่ PenbunAPI ต้องเดินอ้อม
+### ข้อจำกัดที่ PenbunAPI ยังต้องเดินอ้อม
 
   * **`OUTPUT` ต้องมี `INTO` เสมอ** — ทั้ง 32 ตารางมี `AFTER INSERT` trigger เติม Business ID
     SQL Server จึงปฏิเสธ `OUTPUT` ที่ไม่มี `INTO` (Msg 334) API แก้ด้วย
     `repository.InsertReturningAuto` ที่ `OUTPUT INSERTED.autoID INTO @pb_inserted`
     แล้วอ่านแถวกลับจาก View ในทรานแซกชันเดียวกัน
-  * **12 ตารางยังไม่มี View** — `tb_warehouse` `tb_product_group` `tb_route` `tb_company` `tb_discount`
-    และตารางอ้างอิงอีก 7 ตัว ต้องเพิ่มใน v8 เพื่อให้ API เลิกใช้ derived table
-  * **`vw_customer_route` ไม่คืน `is_active` / `update_date`** หน้าจอจึงกรองสถานะและค้นหาไม่ได้
-  * **`vw_book` ไม่คืน `description` และ barcode / น้ำหนัก / ขนาดบรรจุ ของ product** ช่องกรอกเหล่านี้
-    จึงเปิดมาว่างตอนแก้ไข
-  * **Stored Procedure ยังไม่จองล็อกเอง** ตอนนี้ล็อกอยู่ฝั่ง API เท่านั้น
-    คนที่เรียก `USP_POST_*` ตรงจากเครื่องมือจัดการฐานข้อมูลจึงข้ามการป้องกันไปได้
+
+ที่เหลืออีกสี่ข้อปิดไปแล้วใน v8 — View ที่ขาด 12 ตัว, `vw_customer_route` ที่ไม่คืน
+คอลัมน์ audit, `vw_book` ที่ไม่คืน description กับข้อมูลสินค้า และ Stored Procedure
+ที่ไม่จองล็อกเอง
+
+> **API ที่ชี้ View ต้องใช้กับ v8 ขึ้นไป** — PenbunAPI ตั้งแต่คอมมิตที่เปลี่ยน `Source`
+> เป็นชื่อ View จะตอบ `Invalid object name 'dbo.vw_...'` ทันทีถ้าฐานยังเป็น v7
 
 -----
 
-## 📋 สมมติฐานทางธุรกิจที่ v7 ตั้งไว้
+## 📋 สมมติฐานทางธุรกิจที่ v8 ตั้งไว้
 
 ระบุไว้ใน `SECTION 13.5` ของไฟล์ SQL — **ถ้าข้อไหนไม่ตรงกับธุรกิจจริง ต้องแก้ก่อนเริ่มใช้งาน**
 
@@ -583,22 +613,17 @@ v7 เป็น **Full Rebuild** ไม่ใช่ incremental — ถ้าม
 
 -----
 
-## 🚧 Roadmap (v8)
+## 🚧 Roadmap (v9)
 
-เรียงตามลำดับที่ปิดงานได้จริง งานสามข้อแรกคือสิ่งที่ PenbunAPI และ PenbunWeb รออยู่ตอนนี้
-รายละเอียดเต็มอยู่ใน `../PENBUN-TODO.md` หัวข้อ 2
+เรียงตามลำดับที่ปิดงานได้จริง รายละเอียดเต็มอยู่ใน `../PENBUN-TODO.md` หัวข้อ 2 และ 8
 
 | หัวข้อ | รายละเอียด |
 | :--- | :--- |
-| **View ที่ยังขาด 12 ตัว** | `vw_warehouse` `vw_product_group` `vw_route` `vw_company` `vw_discount` + ตารางอ้างอิง 7 ตัว — API ใช้ derived table รออยู่ ทุกจุดมีคอมเมนต์ `TEMP:` กำกับ |
-| **View ที่คืนคอลัมน์ไม่ครบ** | `vw_customer_route` ต้องเพิ่ม `is_active` / `update_date` · `vw_book` ต้องเพิ่ม `description` และ barcode / น้ำหนัก / ขนาดบรรจุ จาก `tb_product` |
-| **ล็อกใน `USP_POST_*`** | ย้ายการจองล็อกสต็อกเข้าไปในกระบวนงาน เรียงตาม `autoID` จากน้อยไปมาก เพื่อให้คนที่เรียกตรงจาก SSMS ได้รับการป้องกันด้วย |
-| **View ของเอกสารอีก 6 ตัว** | ตอนนี้มีแค่ `vw_order_header` / `vw_order_item` — ใบรับสินค้า ใบรับคืน และใบส่งคืนคู่ค้า ยังไม่มี |
-| **กระบวนงานกลับรายการ** | `USP_REVERSE_*` สำหรับเอกสารที่โพสต์ไปแล้ว ปัจจุบันต้องใช้ `/stock/adjust` แก้มือ |
-| **Price & Discount Engine** | `tb_price_rule` — ราคาหลายชั้น (product × customer × route) แทน `tb_discount` ที่เป็น campaign แบน ๆ |
-| **RBAC** | `tb_role` / `tb_user_role` / `tb_privilege_group` / `tb_privilege` ตาม Design Doc M002 (ปัจจุบันมีแค่ `user_level` รองรับ 1 role/user) |
+| **RBAC** | `tb_role` / `tb_permission` / `tb_role_permission` / `tb_user_role` ตาม Design Doc M002 — ปัจจุบันมีแค่ `user_level` รองรับ 1 role/user และหน้าจอผู้ใช้กับเมนูกรองสิทธิ์รออยู่ทั้งคู่ |
+| **แม็ปส่วนลด** | `tb_discount_group_price` (SKU × กลุ่มลูกค้า) และ `tb_customer_sku_discount` (SKU × ลูกค้า) — กฎที่บอกว่าร้านหนึ่งจ่ายเท่าไรสำหรับหนังสือเล่มหนึ่งยังไม่มีที่อยู่ในระบบเลย `tb_order_item.discount_percent` ทุกวันนี้คือเลขที่คนกรอกเอง |
+| **กระบวนงานกลับรายการ** | `USP_REVERSE_*` สำหรับเอกสารที่โพสต์ไปแล้ว ปัจจุบันต้องใช้ `/stock/adjust` แก้มือซึ่งไม่ทิ้งร่องรอยว่าแก้เพราะเอกสารใบไหน |
 | **History Log** | `tb_history_group` / `tb_history_log` + `tb_configuration` ตาม Spec M001/M002 |
-| **Invoice Layer** | ใบวางบิล / ใบลดหนี้ / Vendor Settlement |
+| **Invoice Layer** | ใบวางบิล / ใบลดหนี้ / Vendor Settlement — legacy module 7 ทั้งโมดูล 36 หน้า |
 | **Multi-Company** | `ref_company_auto` บนตาราง master (รอคำตอบเรื่อง 11/21) |
 
 -----

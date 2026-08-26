@@ -1,12 +1,12 @@
 
-# 📘 PenbunSQL Standard Specification v7.0
+# 📘 PenbunSQL Standard Specification v8.0
 
 **Project:** Penbun System (Distribution Center Database)
-**Schema Version:** 7.0.0 · **Document Revision:** 7.0.2
+**Schema Version:** 8.0.0 · **Document Revision:** 8.0.0
 **Status:** Stable / Standard Compliant
-**Effective Date:** 2026-08-21 · **Last Revised:** 2026-08-25
+**Effective Date:** 2026-08-21 · **Last Revised:** 2026-08-26
 **Architect:** PlayDevX
-**Reference Script:** [`SQL/SQL-PENBUN-v7.sql`](./SQL/SQL-PENBUN-v7.sql)
+**Reference Script:** [`SQL/SQL-PENBUN-v8.sql`](./SQL/SQL-PENBUN-v8.sql)
 
 -----
 
@@ -527,6 +527,30 @@ ALTER TABLE [dbo].[tb_order] WITH CHECK ADD CONSTRAINT [CK_tb_order_status]
 -----
 
 ## 📝 Change Log
+
+### v8.0.0 (26/08/2026) — Read Model กลับเข้าฐานข้อมูล
+
+v8 ไม่เพิ่มและไม่ลบตารางแม้แต่ตัวเดียว งานทั้งหมดคือปิดช่องว่างระหว่างสิ่งที่ฐานข้อมูล
+ให้ กับสิ่งที่ PenbunAPI ต้องเขียนเอง
+
+* **Added — View ครบทุก resource:** 12 master + 6 เอกสาร รวมเป็น **30 View**
+  ก่อนหน้านี้ API ฝัง `SELECT ... FROM dbo.tb_...` ไว้ในโค้ด Go 9 จุด กำกับด้วย `TEMP:`
+  แปลว่านิยามของ Read Model อยู่นอกฐานข้อมูล คนแก้ schema จึงมองไม่เห็น
+* **Fixed — `vw_customer_route`:** คืน `description` และคอลัมน์ audit ครบสี่ตัว
+* **Fixed — `vw_book`:** คืน `description` (ตั้งชื่อเป็น `book_description` ให้ตรงกับที่
+  `POST /book` รับ) พร้อม `barcode` / `weight_kg` / `pack_qty` ของสินค้า —
+  เดิมช่องเหล่านี้เปิดมาว่างตอนแก้ไข กลายเป็นการลบค่าทิ้งโดยผู้ใช้ไม่รู้ตัว
+* **Fixed — `doc_no` กว้าง 30 → 50** ทั้งสี่เอกสาร ให้ตรงกับ `MaxLen` ที่ API ประกาศไว้
+  ค่ายาว 31-50 ตัวอักษรเคยผ่าน validation แล้วไปตายที่ `INSERT` เป็น 500
+* **Added — `tb_book.translator`:** `POST /book` รับฟิลด์นี้มาตั้งแต่ v4.0.0 โดยไม่มีคอลัมน์รองรับ
+* **Added — `tb_book.complimentary_qty` (อภินันท์):** legacy 7.4 และ 7.5 อ่านค่านี้จากแฟ้มหนังสือ
+* **Added — `tb_users.ref_warehouse_auto`:** สาขาที่ผู้ใช้สังกัด ใช้ `tb_warehouse` ที่มีอยู่แล้ว
+  แทนการสร้างตารางสาขาใหม่ — สาขาในระบบนี้คือคลัง
+* **Added — `posted_date`** ให้ `tb_return_note` และ `tb_vendor_return_note` พร้อมให้ proc ประทับ
+  เดิมสองเอกสารนี้ไม่บันทึกเลยว่าโพสต์เมื่อไร ต้องเดาจาก `update_date` ที่การแก้ครั้งถัดไปทับทิ้ง
+* **Added — `USP_LOCK_STOCK_KEY`** และ `USP_POST_*` จองล็อกเองทุกคู่ (SKU, คลัง) เรียงจากน้อยไปมาก
+  ชื่อ resource ตรงกับที่ API ใช้ (`PENBUN:STOCK:<sku>:<warehouse>`) สองฝั่งจึงคิวล็อกตัวเดียวกัน
+  เดิมพึ่งให้ API จองก่อนเรียก ใครรัน proc จาก SSMS หรือ job จึงข้ามการป้องกันทั้งหมด
 
 ### v7.0.2 (25/08/2026) — Trigger Side Effects on Callers
 
