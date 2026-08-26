@@ -3350,9 +3350,12 @@ CREATE VIEW [dbo].[vw_book] AS
 SELECT  b.autoID AS book_auto,
         b.book_id, b.book_name, b.author, b.translator, b.isbn, b.publisher_name, b.page_count,
         b.cover_price, b.net_price, b.vendor_discount_percent, b.customer_discount_percent,
-        b.complimentary_qty, b.effective_date, b.description,
+        b.complimentary_qty, b.effective_date,
+        /* ชื่อคอลัมน์ต้องตรงกับที่ POST /book รับเข้ามา ไม่งั้นฟอร์มแก้ไขจะอ่านค่าเดิม
+           กลับมาไม่เจอแล้วเปิดมาว่าง  หนังสือกับสินค้าต่างมี description คนละตัว */
+        b.description AS book_description,
         p.product_id, p.product_code, p.product_name,
-        p.barcode, p.weight_kg, p.pack_qty,
+        p.barcode, p.weight_kg, p.pack_qty, p.description,
         bt.book_type_id, bt.type_name AS book_type_name,
         v.vendor_id, v.vendor_name,
         b.is_active, b.id_status, b.update_by, b.update_date
