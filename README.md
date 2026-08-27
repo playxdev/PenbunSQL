@@ -16,7 +16,12 @@
   * **`README.md`**: (ไฟล์นี้) ภาพรวมระบบ, Business Flow และ Concept หลัก
   * **`SQL-STANDARD.md`**: กฎเหล็กการสร้างตาราง, Naming Convention, และ Audit Rules
   * **`SQL-TABLE.md`**: ลำดับการสร้างตาราง (Execution Order) และ Dependency Map
-  * **`SQL/SQL-PENBUN-v10.sql`**: Full standalone build ล่าสุด (34 ตาราง · 32 View · 11 Procedure ·
+  * **`SQL/SQL-PENBUN-v11.sql`**: Full standalone build ล่าสุด (34 ตาราง · 33 View · 11 Procedure ·
+    1 Function, 5,029 บรรทัด) — v10 ทั้งก้อน บวก `vw_users`: Read Model ของผู้ใช้งาน
+    ที่ JOIN คลังประจำตัวมาให้ และ **ไม่คืน** `user_password` กับ `counting_password_fail`
+    หน้าจอ "ผู้ใช้และสิทธิ์" ฝั่ง PenbunWeb อ่านผ่าน View นี้ ส่วน `auth` ยังอ่าน `tb_users`
+    ตรงเหมือนเดิมเพราะต้องการ hash ไม่มีตารางใหม่ จำนวน object เท่า v10 ทุกบรรทัดยกเว้น View
+  * **`SQL/SQL-PENBUN-v10.sql`**: Full standalone build (34 ตาราง · 32 View · 11 Procedure ·
     1 Function, 4,996 บรรทัด) — v9 ทั้งก้อน บวกที่อยู่ชุดเดียวกันทั้งสี่ตาราง:
     `tb_warehouse` ได้ `sub_district` · `district` · `zip_code` และ `vw_company` คืน
     `sub_district` · `district` ที่ตารางมีมาตั้งแต่ v5 แต่ View ไม่เคย SELECT
