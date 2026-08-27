@@ -567,6 +567,25 @@ UPDATE dbo.tb_users
 
 ## 🔄 Migration Note
 
+**v10 → v11** เพิ่ม View เดียว ไม่แตะตารางเลย ฐานที่มีข้อมูลจริงอยู่แล้ว **ห้ามรัน
+`SQL-PENBUN-v11.sql` ทั้งไฟล์** เพราะ SECTION 1 คือ `DROP` ทั้งฐาน รันแค่คำสั่งนี้พอ:
+
+```sql
+CREATE VIEW [dbo].[vw_users] AS
+SELECT  u.autoID AS user_auto,
+        u.user_id, u.user_name, u.full_name, u.email, u.user_level,
+        u.status_user_locked, u.status_change_pw, u.last_login_date, u.remark,
+        w.warehouse_id, w.warehouse_code, w.warehouse_name,
+        u.is_active, u.id_status, u.update_by, u.update_date
+  FROM dbo.tb_users u
+  LEFT JOIN dbo.tb_warehouse w ON w.autoID = u.ref_warehouse_auto
+ WHERE u.is_delete = 0;
+GO
+```
+
+`GET /users` ของ PenbunAPI อ่านจาก View นี้ ถ้ายังไม่ได้รัน หน้าจอ "ผู้ใช้และสิทธิ์"
+จะตอบ `Invalid object name 'dbo.vw_users'`
+
 **v7 → v8** ไม่มีการลบหรือเปลี่ยนชนิดคอลัมน์เดิม มีแต่การเพิ่ม — ใครที่มีข้อมูลจริงอยู่แล้ว
 เขียน `ALTER TABLE ... ADD` สี่คอลัมน์ (`tb_book.translator` · `tb_book.complimentary_qty` ·
 `tb_users.ref_warehouse_auto` · `posted_date` สองตาราง), ขยาย `doc_no` เป็น `nvarchar(50)`,
