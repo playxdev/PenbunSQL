@@ -4953,10 +4953,14 @@ GO
 -- 11.13 ผู้ใช้งานตั้งต้น
 --       รหัสผ่านเป็น bcrypt ของ 'Penbun@2026' -> เปลี่ยนทันทีหลัง login ครั้งแรก
 --       status_change_pw = 1 (default) จะบังคับเปลี่ยนรหัสตาม Authentication Spec M001
+--
+--       v4-v10 เขียนคอมเมนต์บรรทัดบนไว้แบบนี้ แต่ hash ที่วางจริงเป็นของรหัสผ่านอื่น
+--       ติดตั้งใหม่ทุกครั้งจึง login ไม่ได้เลยจนกว่าจะไปแก้แถวนี้ในฐานเอง
+--       v11 วาง hash ที่ตรงกับ 'Penbun@2026' จริง
 INSERT INTO [dbo].[tb_users]
     ([prefix],[user_name],[user_password],[user_level],[full_name],[update_by])
 VALUES
-    (N'USR', N'admin', N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+    (N'USR', N'admin', N'$2a$10$yjuBoutjVFKwKX8SxfLdLOWL6.dn0RfW3Cjs21QXQNvgQMLuQj73C',
      N'ADMIN', N'ผู้ดูแลระบบ', N'System');
 GO
 
