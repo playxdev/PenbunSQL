@@ -17,10 +17,11 @@
   * **`SQL-STANDARD.md`**: กฎเหล็กการสร้างตาราง, Naming Convention, และ Audit Rules
   * **`SQL-TABLE.md`**: ลำดับการสร้างตาราง (Execution Order) และ Dependency Map
   * **`SQL/SQL-PENBUN-v11.sql`**: Full standalone build ล่าสุด (34 ตาราง · 33 View · 11 Procedure ·
-    1 Function, 5,029 บรรทัด) — v10 ทั้งก้อน บวก `vw_users`: Read Model ของผู้ใช้งาน
+    1 Function, 5,033 บรรทัด) — v10 ทั้งก้อน บวก `vw_users`: Read Model ของผู้ใช้งาน
     ที่ JOIN คลังประจำตัวมาให้ และ **ไม่คืน** `user_password` กับ `counting_password_fail`
     หน้าจอ "ผู้ใช้และสิทธิ์" ฝั่ง PenbunWeb อ่านผ่าน View นี้ ส่วน `auth` ยังอ่าน `tb_users`
     ตรงเหมือนเดิมเพราะต้องการ hash ไม่มีตารางใหม่ จำนวน object เท่า v10 ทุกบรรทัดยกเว้น View
+    และแก้ hash ของผู้ใช้ตั้งต้นให้ตรงกับ `'Penbun@2026'` ที่คอมเมนต์ระบุไว้ตั้งแต่ v4
   * **`SQL/SQL-PENBUN-v10.sql`**: Full standalone build (34 ตาราง · 32 View · 11 Procedure ·
     1 Function, 4,996 บรรทัด) — v9 ทั้งก้อน บวกที่อยู่ชุดเดียวกันทั้งสี่ตาราง:
     `tb_warehouse` ได้ `sub_district` · `district` · `zip_code` และ `vw_company` คืน
@@ -473,6 +474,16 @@ tables 32 | views 12 | procedures 10 | foreign_keys 53
 
 ### 7. เพิ่มผู้ใช้งานลง `tb_users` (bcrypt)
 
+> 🟢 **ตั้งแต่ 27 ส.ค. 2569 ไม่ต้องทำด้วยมือแล้ว** — `POST /users` ของ PenbunAPI
+> (`internal/domain/user`) รับรหัสผ่านเป็น plaintext แล้ว hash ให้เอง ตรวจ `user_level`
+> และปล่อย `status_change_pw` ไว้ที่ DEFAULT หน้าจอ "ผู้ใช้และสิทธิ์" ฝั่ง PenbunWeb
+> เรียกปลายทางนี้ผ่านปุ่ม **เพิ่มผู้ใช้** ขั้นตอนข้างล่างเหลือไว้สองกรณี:
+> ตอน bootstrap ที่ยังไม่มี ADMIN สักคนให้ login และตอนกู้บัญชีที่เข้าไม่ได้แล้ว
+
+**ผู้ใช้ตั้งต้นหลังติดตั้ง v11** — `admin` / `Penbun@2026` (`status_change_pw = 1`
+บังคับให้เปลี่ยนทันทีที่ login ครั้งแรก) สคริปต์ v4-v10 วาง hash ที่ไม่ตรงกับรหัสผ่าน
+ที่คอมเมนต์ระบุ ติดตั้งจากรุ่นเหล่านั้นจะ login ไม่ได้จนกว่าจะแก้แถวนี้เอง
+
 `user_password` เก็บเป็น **bcrypt hash เท่านั้น** — ห้ามเก็บ plaintext และห้ามใช้ `HASHBYTES()` ของ SQL Server
 (PenbunAPI ตรวจรหัสผ่านด้วย `bcrypt.CompareHashAndPassword` จาก `golang.org/x/crypto/bcrypt` ใน `internal/domain/auth/service.go`)
 
@@ -585,6 +596,9 @@ GO
 
 `GET /users` ของ PenbunAPI อ่านจาก View นี้ ถ้ายังไม่ได้รัน หน้าจอ "ผู้ใช้และสิทธิ์"
 จะตอบ `Invalid object name 'dbo.vw_users'`
+
+hash ของผู้ใช้ตั้งต้นที่ v11 แก้ไม่ต้องตามมาด้วย ฐานที่ใช้งานอยู่แล้วมีรหัสผ่านที่คนตั้งเอง
+ทับไปแล้ว จะไปเขียนทับกลับเป็นค่าตั้งต้นไม่ได้
 
 **v7 → v8** ไม่มีการลบหรือเปลี่ยนชนิดคอลัมน์เดิม มีแต่การเพิ่ม — ใครที่มีข้อมูลจริงอยู่แล้ว
 เขียน `ALTER TABLE ... ADD` สี่คอลัมน์ (`tb_book.translator` · `tb_book.complimentary_qty` ·
