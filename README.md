@@ -570,7 +570,19 @@ UPDATE dbo.tb_users
    SET user_password = N'$2y$10$...', status_change_pw = 1, counting_password_fail = 0,
        status_user_locked = 0, update_by = N'Admin01'
  WHERE user_name = N'somchai';
+
+-- ปลดล็อกบัญชีที่ใส่รหัสผ่านผิดจนถูกระงับ (ล้างทั้งสถานะและตัวนับ)
+UPDATE dbo.tb_users
+   SET status_user_locked = 0, counting_password_fail = 0, update_by = N'Admin01'
+ WHERE user_name = N'somchai' AND is_delete = 0;
 ```
+
+> 🔓 `status_user_locked` กับ `counting_password_fail` เป็นของคู่กัน — ตัวแรกคือประตูที่
+> `POST /auth/login` ตรวจ ตัวหลังคือตัวนับที่ทำให้ประตูปิด เมื่อถึง `AUTH_MAX_FAIL`
+> ทางที่ถูกต้องคือเรียก `PUT /users/{user_id}/unlock` ซึ่งล้างให้ทั้งคู่
+> ถ้าแก้ในฐานเองให้ล้างทั้งสองคอลัมน์ตามคำสั่งข้างบน (ฝั่ง API รุ่นปัจจุบันทนกรณีที่
+> ล้างแค่ `status_user_locked` ได้แล้ว — จะเริ่มนับรอบใหม่แทนการล็อกซ้ำทันที
+> แต่การล้างไม่ครบยังทำให้จำนวนครั้งที่เหลือคลาดเคลื่อน)
 
 > 🔄 ต้องการล้างตารางจริง ๆ ให้ rebuild ทั้งฐานข้อมูลด้วย `SQL/SQL-PENBUN-v8.sql` (SECTION 1 มี `DROP` อยู่แล้ว) — อย่าล้างเฉพาะ `tb_users` เพราะ `tb_reference` จะไม่ sync
 
