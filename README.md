@@ -16,7 +16,14 @@
   * **`README.md`**: (ไฟล์นี้) ภาพรวมระบบ, Business Flow และ Concept หลัก
   * **`SQL-STANDARD.md`**: กฎเหล็กการสร้างตาราง, Naming Convention, และ Audit Rules
   * **`SQL-TABLE.md`**: ลำดับการสร้างตาราง (Execution Order) และ Dependency Map
-  * **`SQL/SQL-PENBUN-v11.sql`**: Full standalone build ล่าสุด (34 ตาราง · 33 View · 11 Procedure ·
+  * **`SQL/SQL-PENBUN-v12.sql`**: Full standalone build ล่าสุด (38 ตาราง · 36 View · 11 Procedure ·
+    1 Function, 5,580 บรรทัด) — v11 ทั้งก้อน บวก RBAC ตาม Authentication Spec M002:
+    `tb_role` · `tb_user_role` · `tb_privilege_group` · `tb_privilege` พร้อม `vw_role` ·
+    `vw_privilege` · `vw_user_privilege` สิทธิ์ละเอียดระดับ **บทบาท × resource × CRUD**
+    ผู้ใช้ถือได้หลายบทบาท สิทธิ์รวมแบบ union  SEED ลอกกฎที่ PenbunAPI บังคับอยู่วันนี้
+    ลงตารางทั้งชุด ติดตั้งแล้วสิทธิ์ของทุกคนเท่าเดิม  `user_level` ยังอยู่และยังเป็นตัวที่
+    API ใช้จริง ตัดทิ้งได้เมื่อ API ย้ายไปอ่าน `vw_user_privilege` แล้วเท่านั้น
+  * **`SQL/SQL-PENBUN-v11.sql`**: Full standalone build (34 ตาราง · 33 View · 11 Procedure ·
     1 Function, 5,033 บรรทัด) — v10 ทั้งก้อน บวก `vw_users`: Read Model ของผู้ใช้งาน
     ที่ JOIN คลังประจำตัวมาให้ และ **ไม่คืน** `user_password` กับ `counting_password_fail`
     หน้าจอ "ผู้ใช้และสิทธิ์" ฝั่ง PenbunWeb อ่านผ่าน View นี้ ส่วน `auth` ยังอ่าน `tb_users`
@@ -480,7 +487,7 @@ tables 32 | views 12 | procedures 10 | foreign_keys 53
 > เรียกปลายทางนี้ผ่านปุ่ม **เพิ่มผู้ใช้** ขั้นตอนข้างล่างเหลือไว้สองกรณี:
 > ตอน bootstrap ที่ยังไม่มี ADMIN สักคนให้ login และตอนกู้บัญชีที่เข้าไม่ได้แล้ว
 
-**ผู้ใช้ตั้งต้นหลังติดตั้ง v11** — `admin` / `Penbun@2026` (`status_change_pw = 1`
+**ผู้ใช้ตั้งต้นหลังติดตั้ง v12** — `admin` / `Penbun@2026` (`status_change_pw = 1`
 บังคับให้เปลี่ยนทันทีที่ login ครั้งแรก) สคริปต์ v4-v10 วาง hash ที่ไม่ตรงกับรหัสผ่าน
 ที่คอมเมนต์ระบุ ติดตั้งจากรุ่นเหล่านั้นจะ login ไม่ได้จนกว่าจะแก้แถวนี้เอง
 
@@ -591,6 +598,17 @@ UPDATE dbo.tb_users
 -----
 
 ## 🔄 Migration Note
+
+**v11 → v12** เพิ่มสี่ตาราง สาม View และ SEED ไม่แตะตารางเดิมและไม่ลบคอลัมน์ไหนเลย
+ฐานที่มีข้อมูลจริงอยู่แล้ว **ห้ามรัน `SQL-PENBUN-v12.sql` ทั้งไฟล์** เพราะ SECTION 1 คือ
+`DROP` ทั้งฐาน ให้หยิบเฉพาะส่วนของสี่ตารางนี้จาก SECTION 3 · 4 · 6 · 7 · 8 · 9 · 11
+ตามลำดับนั้น (ตาราง → default → foreign key → trigger → index → view → seed)
+
+ลำดับ SEED ห้ามสลับ: `tb_privilege_group` และ `tb_role` ต้องมาก่อน `tb_privilege`
+ส่วน `tb_user_role` ต้องมาหลัง `tb_users` ที่มีแถวอยู่แล้ว
+
+`user_level` ไม่ถูกแตะ PenbunAPI รุ่นปัจจุบันจึงทำงานต่อได้โดยไม่ต้องแก้อะไร
+ตารางใหม่เป็น Read Model ที่ยังไม่มีใครอ่าน จนกว่า API จะย้ายไป `vw_user_privilege`
 
 **v10 → v11** เพิ่ม View เดียว ไม่แตะตารางเลย ฐานที่มีข้อมูลจริงอยู่แล้ว **ห้ามรัน
 `SQL-PENBUN-v11.sql` ทั้งไฟล์** เพราะ SECTION 1 คือ `DROP` ทั้งฐาน รันแค่คำสั่งนี้พอ:

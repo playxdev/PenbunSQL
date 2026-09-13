@@ -1,8 +1,8 @@
-# 🏗️ PenbunSQL v9.0.0 — Execution Order & Development Roadmap
+# 🏗️ PenbunSQL v12.0.0 — Execution Order & Development Roadmap
 
-เอกสารนี้ระบุลำดับการสร้าง Object ในฐานข้อมูล PenbunSQL v9.0.0 และติดตามสถานะการพัฒนา
+เอกสารนี้ระบุลำดับการสร้าง Object ในฐานข้อมูล PenbunSQL v12.0.0 และติดตามสถานะการพัฒนา
 
-**SQL Script:** [`SQL/SQL-PENBUN-v9.sql`](./SQL/SQL-PENBUN-v9.sql) — standalone full build, 34 ตาราง · 32 View · 11 Procedure · 1 Function
+**SQL Script:** [`SQL/SQL-PENBUN-v12.sql`](./SQL/SQL-PENBUN-v12.sql) — standalone full build, 38 ตาราง · 36 View · 11 Procedure · 1 Function
 
 > **🚨 คำเตือน 1:** v8 เป็น **Full Rebuild** — SECTION 1 ของ script คือ `DROP` ทั้งฐานข้อมูล **สำรองข้อมูลก่อนรันเสมอ**
 >
@@ -35,6 +35,10 @@
 | :--- | :---: | :--- | :---: | :--- |
 | 1 | ✅ | `tb_reference` | REF | — *(PK = `ref_id`, ไม่มี Business ID)* |
 | 2 | ✅ | `tb_users` | USR | `tb_warehouse` (v8 — สาขาที่ผู้ใช้สังกัด, NULL ได้) |
+| 2a | ✅ | `tb_role` | RLE | **v12** บทบาท — `role_code` ห้ามซ้ำ · `is_system = 1` คือ ADMIN / USER |
+| 2b | ✅ | `tb_user_role` | URO | **v12** ผู้ใช้ M..N บทบาท → `tb_users` · `tb_role` |
+| 2c | ✅ | `tb_privilege_group` | PVG | **v12** กลุ่มสิทธิ์ = โมดูล (SYSTEM / MASTER / DOCUMENT / STOCK) |
+| 2d | ✅ | `tb_privilege` | PRV | **v12** บทบาท × resource × CRUD → `tb_role` · `tb_privilege_group` |
 
 ---
 
@@ -286,8 +290,8 @@ SELECT name AS untrusted_fk FROM sys.foreign_keys WHERE is_not_trusted = 1;
 
 | Priority | Module | ตารางที่ต้องเพิ่ม | Blocker |
 | :---: | :--- | :--- | :--- |
-| 🔴 1 | **RBAC** | `tb_role`, `tb_user_role`, `tb_privilege_group`, `tb_privilege` | ทุกหน้าจอใน Design Doc มี pre-condition *"ตรวจสอบสิทธิ์การใช้งานเมนู"* ปัจจุบันมีแค่ `user_level` (1 role/user) ซึ่งพอสำหรับ Sidebar สองแบบ (ADMIN / USER ผ่าน `NavItem.minLevel`) และการล็อกการเขียนข้อมูลหลักไว้ที่ ADMIN แต่ยัง **แยกสิทธิ์รายหน้าจอ รายสาขา หรือรายฟิลด์ไม่ได้** |
-| 🔴 2 | **History Log** | `tb_history_group`, `tb_history_log` | Spec M001/M002 บังคับเก็บประวัติทุก insert/update/delete และแสดง 5 รายการล่าสุดบนหน้าจอ |
+| ✅ 1 | **RBAC** | `tb_role`, `tb_user_role`, `tb_privilege_group`, `tb_privilege` + `vw_role` · `vw_privilege` · `vw_user_privilege` ใน [`SQL/SQL-PENBUN-v12.sql`](./SQL/SQL-PENBUN-v12.sql) | ทำแล้ว 13 ก.ย. 2026 ตาม Authentication Spec M002 หน้า 23-36 — ความละเอียด **บทบาท × resource × CRUD** ผู้ใช้ถือได้หลายบทบาท สิทธิ์รวมแบบ union · `resource_code` = `crud.Resource.Name` จึงผูกกับเส้นทางที่ mount จริง · SEED ลอกกฎที่ API บังคับอยู่วันนี้ทั้งชุด ติดตั้งแล้วสิทธิ์เท่าเดิม · **ยังแยกรายสาขาและรายฟิลด์ไม่ได้ — สเปก M002 ไม่ได้ออกแบบไว้** · `user_level` ยังอยู่จนกว่า API จะย้ายไป `vw_user_privilege` |
+| 🔴 2 | **History Log** | `tb_history_group`, `tb_history_log` | Spec M001/M002 บังคับเก็บประวัติทุก insert/update/delete และแสดง 5 รายการล่าสุดบนหน้าจอ — **RBAC ใน v12 ยังไม่ครบสเปก M002 ทั้งโมดูลจนกว่าข้อนี้จะเสร็จ** |
 | 🟡 3 | **Configuration** | `tb_configuration` | `DBF0003` ต้องอ่านค่า `password fail limit` จากตารางนี้ |
 | ✅ 4 | **แม็ปส่วนลด** | ~~`tb_discount_group_price`, `tb_customer_sku_discount`~~ → `tb_discount_group` + `tb_price_rule` + `UFN_RESOLVE_DISCOUNT` ใน [`SQL/SQL-PENBUN-v9.sql`](./SQL/SQL-PENBUN-v9.sql) | ทำแล้ว 26 ส.ค. 2026 — ใช้ตารางเดียวแยกมิติด้วย `rule_scope` แทนสองตาราง เพราะสองตารางไม่มีที่ให้ "ทั้งสาย" และ on-top ระดับร้านที่ไม่ผูก SKU เหตุผลเต็มอยู่ใน [DISCOUNT-MODEL.md](../DISCOUNT-MODEL.md) §3.1 · เทสต์ 10 เคสที่ [`TEST/TEST-discount-resolve.sql`](./TEST/TEST-discount-resolve.sql) |
 | 🟢 5 | **Invoice Layer** | `tb_invoice`, `tb_credit_note`, `tb_vendor_settlement` | ปัจจุบันมีแค่ช่องเก็บเลขที่ (`invoice_no`, `credit_note_no`, `settlement_no`) |
@@ -308,6 +312,9 @@ SELECT name AS untrusted_fk FROM sys.foreign_keys WHERE is_not_trusted = 1;
 | 6 | `credit_term_day` ตัวไหนชนะระหว่าง `tb_customer_type` กับ `tb_customer` | Invoice Layer |
 | 7 | ปิดบิลผ่านไฟล์ txt — แลกกับระบบบัญชีตัวไหน format อะไร | Integration |
 | 8 | กทม.(21) / ตจว.(11) คนละนิติบุคคลหรือไม่ | Multi-Company |
+| 9 | หน้าจอ user ของสเปก (P0002) มีช่อง Role ช่องเดียว แต่ ER หน้า 33 วาด `users M..N roles` — เอาแบบไหน | `tb_user_role` (v12 เลือกตาม ER) |
+| 10 | ต้องการสิทธิ์ **รายสาขา** (เห็นเฉพาะคลังตัวเอง) หรือ **รายฟิลด์** (เห็นจำนวนไม่เห็นต้นทุน) ไหม | `tb_privilege` — สเปก M002 ไม่ได้ออกแบบไว้ ต้องต่อของใหม่ |
+| 11 | `role_code` ที่ศูนย์ใช้จริงมีกี่บทบาท ชื่ออะไร | SEED 11.15 — v12 วางไว้แค่ ADMIN / USER |
 
 ---
 
