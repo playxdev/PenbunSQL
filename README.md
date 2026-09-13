@@ -529,6 +529,8 @@ VALUES
 | `update_date`, `is_active`, `is_delete`, `id_status`, `counting_password_fail`, `status_user_locked`, `status_change_pw` | มี `DEFAULT` ครบแล้ว |
 
 ค่า `user_level` ที่ใช้อยู่: `ADMIN` / `USER` (ไม่มี CHECK constraint — default = `USER`)
+PenbunAPI รับเฉพาะสองค่านี้ (`domain/user`) และใช้แยกสิทธิ์จริง: ทุกคนที่ login อ่านข้อมูลหลักได้
+การเขียนข้อมูลหลักทุกตารางจำกัดไว้ที่ `ADMIN` ผ่าน `crud.Resource.RequireLevelWrite`
 `status_change_pw` default = `1` แปลว่า**บังคับเปลี่ยนรหัสผ่านตอน login ครั้งแรก** ตาม Authentication Spec M001
 
 **4) ตรวจสอบ**

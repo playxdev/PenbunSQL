@@ -286,7 +286,7 @@ SELECT name AS untrusted_fk FROM sys.foreign_keys WHERE is_not_trusted = 1;
 
 | Priority | Module | ตารางที่ต้องเพิ่ม | Blocker |
 | :---: | :--- | :--- | :--- |
-| 🔴 1 | **RBAC** | `tb_role`, `tb_user_role`, `tb_privilege_group`, `tb_privilege` | ทุกหน้าจอใน Design Doc มี pre-condition *"ตรวจสอบสิทธิ์การใช้งานเมนู"* แต่ปัจจุบันมีแค่ `user_level` (1 role/user) ⇒ **สร้าง Sidebar ตามสิทธิ์ไม่ได้** |
+| 🔴 1 | **RBAC** | `tb_role`, `tb_user_role`, `tb_privilege_group`, `tb_privilege` | ทุกหน้าจอใน Design Doc มี pre-condition *"ตรวจสอบสิทธิ์การใช้งานเมนู"* ปัจจุบันมีแค่ `user_level` (1 role/user) ซึ่งพอสำหรับ Sidebar สองแบบ (ADMIN / USER ผ่าน `NavItem.minLevel`) และการล็อกการเขียนข้อมูลหลักไว้ที่ ADMIN แต่ยัง **แยกสิทธิ์รายหน้าจอ รายสาขา หรือรายฟิลด์ไม่ได้** |
 | 🔴 2 | **History Log** | `tb_history_group`, `tb_history_log` | Spec M001/M002 บังคับเก็บประวัติทุก insert/update/delete และแสดง 5 รายการล่าสุดบนหน้าจอ |
 | 🟡 3 | **Configuration** | `tb_configuration` | `DBF0003` ต้องอ่านค่า `password fail limit` จากตารางนี้ |
 | ✅ 4 | **แม็ปส่วนลด** | ~~`tb_discount_group_price`, `tb_customer_sku_discount`~~ → `tb_discount_group` + `tb_price_rule` + `UFN_RESOLVE_DISCOUNT` ใน [`SQL/SQL-PENBUN-v9.sql`](./SQL/SQL-PENBUN-v9.sql) | ทำแล้ว 26 ส.ค. 2026 — ใช้ตารางเดียวแยกมิติด้วย `rule_scope` แทนสองตาราง เพราะสองตารางไม่มีที่ให้ "ทั้งสาย" และ on-top ระดับร้านที่ไม่ผูก SKU เหตุผลเต็มอยู่ใน [DISCOUNT-MODEL.md](../DISCOUNT-MODEL.md) §3.1 · เทสต์ 10 เคสที่ [`TEST/TEST-discount-resolve.sql`](./TEST/TEST-discount-resolve.sql) |
