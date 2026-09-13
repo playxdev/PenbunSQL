@@ -1,5 +1,5 @@
 /* =====================================================================================
-   TEST-v12-verify.sql  --  ยืนยันว่าฐานนี้เป็น v12 จริง ไม่ใช่ v11 ที่ยังไม่ได้อัปเกรด
+   TEST-rbac-verify.sql  --  ยืนยันว่า RBAC ติดตั้งครบ ทั้งโครง (v12) และบทบาท (v13)
    -------------------------------------------------------------------------------------
    อ่านอย่างเดียวทั้งไฟล์ : ไม่ INSERT ไม่ UPDATE ไม่ DELETE ไม่ CREATE object ถาวร
    จึงรันบน production ได้ปลอดภัย รันซ้ำกี่รอบก็ได้ ไม่ทิ้งอะไรไว้
@@ -9,7 +9,10 @@
    หรือเลือกฐานใน SSMS แล้วกด Execute
 
    ทุกบรรทัดพิมพ์ PASS หรือ FAIL — ไม่มีบรรทัดไหนต้องอ่านตัวเลขเอง
-   ท้ายไฟล์สรุปเป็นคำเดียว : V12 OK หรือ V12 FAILED
+   ท้ายไฟล์สรุปเป็นคำเดียว : RBAC OK หรือ RBAC FAILED
+
+   ต้องรัน SQL-PENBUN-v12.sql แล้วตามด้วย SQL-PENBUN-v13.sql ฐานที่มีแค่ v12
+   จะตกที่หมวด seed เพราะยังมีสองบทบาท ไม่ใช่ห้า ซึ่งถูกต้อง — RBAC ยังไม่ครบ
    ===================================================================================== */
 
 SET NOCOUNT ON;
@@ -118,7 +121,7 @@ BEGIN
            CASE WHEN expected = actual THEN N'PASS' ELSE N'FAIL' END AS [result]
       FROM #r ORDER BY seq;
     PRINT N'';
-    PRINT N'>>> V12 FAILED — ยังไม่ได้ติดตั้ง v12';
+    PRINT N'>>> RBAC FAILED — ยังไม่ได้ติดตั้ง v12';
     SET NOEXEC ON;
 END
 GO
@@ -126,13 +129,14 @@ GO
 /* ─────────────────── ส่วนที่ 3 : SEED และพฤติกรรมจริง ─────────────────── */
 
 INSERT #r (part, check_name, expected, actual)
-SELECT N'3 · seed', N'tb_role (ADMIN · USER)', N'2', CAST(COUNT(*) AS NVARCHAR(40)) FROM dbo.tb_role;
+SELECT N'3 · seed', N'tb_role (ADMIN·USER·WAREHOUSE·DELIVERY·VIEWER)', N'5',
+       CAST(COUNT(*) AS NVARCHAR(40)) FROM dbo.tb_role WHERE is_delete = 0;
 INSERT #r (part, check_name, expected, actual)
 SELECT N'3 · seed', N'tb_privilege_group (SYSTEM/MASTER/DOCUMENT/STOCK)', N'4',
        CAST(COUNT(*) AS NVARCHAR(40)) FROM dbo.tb_privilege_group;
 INSERT #r (part, check_name, expected, actual)
-SELECT N'3 · seed', N'tb_privilege (ADMIN 28 + USER 27)', N'55',
-       CAST(COUNT(*) AS NVARCHAR(40)) FROM dbo.tb_privilege;
+SELECT N'3 · seed', N'tb_privilege (28+27 ของ v12 บวก 27x3 ของ v13)', N'136',
+       CAST(COUNT(*) AS NVARCHAR(40)) FROM dbo.tb_privilege WHERE is_delete = 0;
 INSERT #r (part, check_name, expected, actual)
 SELECT N'3 · seed', N'tb_user_role (admin -> ADMIN)', N'1',
        CAST(COUNT(*) AS NVARCHAR(40)) FROM dbo.tb_user_role;
@@ -186,6 +190,74 @@ SELECT N'3 · สิทธิ์', N'USER : users = ไม่มีแถวส�
  WHERE r.role_code = N'USER' AND p.resource_code = N'users';
 GO
 
+/* ─────────────────── บทบาทของ v13 ───────────────────
+   จำนวนแถวต่อบทบาท จับกรณี seed ลงไม่ครบหรือลงซ้ำ */
+
+INSERT #r (part, check_name, expected, actual)
+SELECT N'4 · v13', N'จำนวนสิทธิ์ต่อบทบาท WAREHOUSE·DELIVERY·VIEWER', N'27,27,27',
+       ISNULL((SELECT CAST(SUM(CASE WHEN r.role_code = N'WAREHOUSE' THEN 1 ELSE 0 END) AS NVARCHAR(10)) + N','
+                   + CAST(SUM(CASE WHEN r.role_code = N'DELIVERY'  THEN 1 ELSE 0 END) AS NVARCHAR(10)) + N','
+                   + CAST(SUM(CASE WHEN r.role_code = N'VIEWER'    THEN 1 ELSE 0 END) AS NVARCHAR(10))
+                FROM dbo.tb_privilege p
+                JOIN dbo.tb_role r ON r.autoID = p.ref_role_auto
+               WHERE p.is_delete = 0), N'(ไม่มีแถว)');
+
+/* เส้นแบ่งที่ทำให้สองบทบาทนี้ต่างกัน ถ้าสลับกันคือ seed ผิด */
+INSERT #r (part, check_name, expected, actual)
+SELECT N'4 · v13', N'WAREHOUSE : receive-note ครบสี่ · order ดูอย่างเดียว', N'1111,1000',
+       ISNULL((SELECT (SELECT CAST(p.can_view AS NVARCHAR(1))+CAST(p.can_insert AS NVARCHAR(1))
+                            + CAST(p.can_update AS NVARCHAR(1))+CAST(p.can_delete AS NVARCHAR(1))
+                         FROM dbo.tb_privilege p JOIN dbo.tb_role r ON r.autoID = p.ref_role_auto
+                        WHERE r.role_code = N'WAREHOUSE' AND p.resource_code = N'receive-note')
+                   + N','
+                   + (SELECT CAST(p.can_view AS NVARCHAR(1))+CAST(p.can_insert AS NVARCHAR(1))
+                            + CAST(p.can_update AS NVARCHAR(1))+CAST(p.can_delete AS NVARCHAR(1))
+                         FROM dbo.tb_privilege p JOIN dbo.tb_role r ON r.autoID = p.ref_role_auto
+                        WHERE r.role_code = N'WAREHOUSE' AND p.resource_code = N'order')), N'(ไม่มีแถว)');
+
+INSERT #r (part, check_name, expected, actual)
+SELECT N'4 · v13', N'DELIVERY : order ครบสี่ · allocation ดึงได้ · receive-note ดูอย่างเดียว', N'1111,1100,1000',
+       ISNULL((SELECT (SELECT CAST(p.can_view AS NVARCHAR(1))+CAST(p.can_insert AS NVARCHAR(1))
+                            + CAST(p.can_update AS NVARCHAR(1))+CAST(p.can_delete AS NVARCHAR(1))
+                         FROM dbo.tb_privilege p JOIN dbo.tb_role r ON r.autoID = p.ref_role_auto
+                        WHERE r.role_code = N'DELIVERY' AND p.resource_code = N'order')
+                   + N','
+                   + (SELECT CAST(p.can_view AS NVARCHAR(1))+CAST(p.can_insert AS NVARCHAR(1))
+                            + CAST(p.can_update AS NVARCHAR(1))+CAST(p.can_delete AS NVARCHAR(1))
+                         FROM dbo.tb_privilege p JOIN dbo.tb_role r ON r.autoID = p.ref_role_auto
+                        WHERE r.role_code = N'DELIVERY' AND p.resource_code = N'allocation')
+                   + N','
+                   + (SELECT CAST(p.can_view AS NVARCHAR(1))+CAST(p.can_insert AS NVARCHAR(1))
+                            + CAST(p.can_update AS NVARCHAR(1))+CAST(p.can_delete AS NVARCHAR(1))
+                         FROM dbo.tb_privilege p JOIN dbo.tb_role r ON r.autoID = p.ref_role_auto
+                        WHERE r.role_code = N'DELIVERY' AND p.resource_code = N'receive-note')), N'(ไม่มีแถว)');
+
+/* VIEWER ต้องไม่มีสิทธิ์เขียนสักแถวเดียวในทั้งระบบ */
+INSERT #r (part, check_name, expected, actual)
+SELECT N'4 · v13', N'VIEWER : ไม่มีสิทธิ์เขียนเลยสักแถว', N'0',
+       CAST(COUNT(*) AS NVARCHAR(40))
+  FROM dbo.tb_privilege p JOIN dbo.tb_role r ON r.autoID = p.ref_role_auto
+ WHERE r.role_code = N'VIEWER' AND p.is_delete = 0
+   AND (p.can_insert = 1 OR p.can_update = 1 OR p.can_delete = 1);
+
+/* การจัดการผู้ใช้ยังเป็นของ ADMIN เท่านั้น สามบทบาทใหม่ต้องไม่มีแถวของ users */
+INSERT #r (part, check_name, expected, actual)
+SELECT N'4 · v13', N'WAREHOUSE·DELIVERY·VIEWER : ไม่มีแถวของ users', N'0',
+       CAST(COUNT(*) AS NVARCHAR(40))
+  FROM dbo.tb_privilege p JOIN dbo.tb_role r ON r.autoID = p.ref_role_auto
+ WHERE r.role_code IN (N'WAREHOUSE', N'DELIVERY', N'VIEWER')
+   AND p.resource_code = N'users' AND p.is_delete = 0;
+
+/* ทุกบัญชีต้องมี user_level ที่มีบทบาทรองรับ ไม่งั้น login ได้แต่ไม่มีสิทธิ์ */
+INSERT #r (part, check_name, expected, actual)
+SELECT N'4 · v13', N'บัญชีที่ user_level ไม่มีบทบาทรองรับ', N'0',
+       CAST(COUNT(*) AS NVARCHAR(40))
+  FROM dbo.tb_users u
+ WHERE u.is_delete = 0
+   AND NOT EXISTS (SELECT 1 FROM dbo.tb_role r
+                    WHERE r.role_code = u.user_level AND r.is_delete = 0 AND r.is_active = 1);
+GO
+
 /* ─────────────────────────────── สรุป ─────────────────────────────── */
 
 SELECT part AS [part], check_name AS [check], expected AS [expected], actual AS [actual],
@@ -196,9 +268,9 @@ DECLARE @fail INT = (SELECT COUNT(*) FROM #r WHERE expected <> actual);
 DECLARE @all  INT = (SELECT COUNT(*) FROM #r);
 PRINT N'';
 IF @fail = 0
-    PRINT N'>>> V12 OK  —  ผ่านครบ ' + CAST(@all AS NVARCHAR(10)) + N' รายการ';
+    PRINT N'>>> RBAC OK  —  ผ่านครบ ' + CAST(@all AS NVARCHAR(10)) + N' รายการ';
 ELSE
-    PRINT N'>>> V12 FAILED  —  ตก ' + CAST(@fail AS NVARCHAR(10))
+    PRINT N'>>> RBAC FAILED  —  ตก ' + CAST(@fail AS NVARCHAR(10))
         + N' จาก ' + CAST(@all AS NVARCHAR(10)) + N' รายการ ดูบรรทัดที่ขึ้น FAIL';
 GO
 

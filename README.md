@@ -16,7 +16,12 @@
   * **`README.md`**: (ไฟล์นี้) ภาพรวมระบบ, Business Flow และ Concept หลัก
   * **`SQL-STANDARD.md`**: กฎเหล็กการสร้างตาราง, Naming Convention, และ Audit Rules
   * **`SQL-TABLE.md`**: ลำดับการสร้างตาราง (Execution Order) และ Dependency Map
-  * **`SQL/SQL-PENBUN-v12.sql`**: Full standalone build ล่าสุด (38 ตาราง · 36 View · 11 Procedure ·
+  * **`SQL/SQL-PENBUN-v13.sql`**: **Incremental** ไม่ใช่ full build — `INSERT` อย่างเดียว
+    ไม่ DROP ไม่ ALTER รันบนฐานที่มีข้อมูลจริงได้ และรันซ้ำได้ เพิ่มบทบาทระดับที่สาม
+    `WAREHOUSE` (คลังสินค้า) · `DELIVERY` (จัดส่ง) · `VIEWER` (ดูอย่างเดียว) รวม 81 แถว
+    ใน `tb_privilege` ตัดตามเส้นเดียวกับ module ของเอกสาร legacy — Receive/Return,
+    Deliver, และการอ่านอย่างเดียว ทั้งสามตัวไม่มีสิทธิ์แตะ `users` ซึ่งยังเป็นของ ADMIN
+  * **`SQL/SQL-PENBUN-v12.sql`**: Full standalone build (38 ตาราง · 36 View · 11 Procedure ·
     1 Function, 5,580 บรรทัด) — v11 ทั้งก้อน บวก RBAC ตาม Authentication Spec M002:
     `tb_role` · `tb_user_role` · `tb_privilege_group` · `tb_privilege` พร้อม `vw_role` ·
     `vw_privilege` · `vw_user_privilege` สิทธิ์ละเอียดระดับ **บทบาท × resource × CRUD**
@@ -598,6 +603,18 @@ UPDATE dbo.tb_users
 -----
 
 ## 🔄 Migration Note
+
+**v12 → v13** เพิ่มแถวอย่างเดียว ไม่แตะโครงสร้าง รันได้เลยไม่ต้องสำรองก่อน (สำรองไว้ก็ดี):
+
+```
+sqlcmd -S <host>,1433 -U sa -P '<pw>' -C -d PENBUN -b -i SQL/SQL-PENBUN-v13.sql
+```
+
+มี guard กันรันผิดฐาน ถ้าไม่เจอ `tb_role` / `tb_privilege` จะหยุดพร้อมบอกให้ติดตั้ง v12 ก่อน
+ตรวจผลด้วย [`TEST/TEST-rbac-verify.sql`](./TEST/TEST-rbac-verify.sql) ต้องได้ `RBAC OK`
+
+หลัง v13 `POST /users` ของ PenbunAPI รับ `user_level` เป็น `WAREHOUSE` · `DELIVERY` ·
+`VIEWER` ได้ทันทีโดยไม่ต้อง deploy ใหม่ เพราะรายการค่าที่รับได้อ่านจาก `tb_role` แล้ว
 
 **v11 → v12** เพิ่มสี่ตาราง สาม View และ SEED ไม่แตะตารางเดิมและไม่ลบคอลัมน์ไหนเลย
 ฐานที่มีข้อมูลจริงอยู่แล้ว **ห้ามรัน `SQL-PENBUN-v12.sql` ทั้งไฟล์** เพราะ SECTION 1 คือ

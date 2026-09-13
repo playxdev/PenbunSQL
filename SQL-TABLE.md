@@ -314,7 +314,7 @@ SELECT name AS untrusted_fk FROM sys.foreign_keys WHERE is_not_trusted = 1;
 | 8 | กทม.(21) / ตจว.(11) คนละนิติบุคคลหรือไม่ | Multi-Company |
 | 9 | หน้าจอ user ของสเปก (P0002) มีช่อง Role ช่องเดียว แต่ ER หน้า 33 วาด `users M..N roles` — เอาแบบไหน | `tb_user_role` (v12 เลือกตาม ER) |
 | 10 | ต้องการสิทธิ์ **รายสาขา** (เห็นเฉพาะคลังตัวเอง) หรือ **รายฟิลด์** (เห็นจำนวนไม่เห็นต้นทุน) ไหม | `tb_privilege` — สเปก M002 ไม่ได้ออกแบบไว้ ต้องต่อของใหม่ |
-| 11 | `role_code` ที่ศูนย์ใช้จริงมีกี่บทบาท ชื่ออะไร | SEED 11.15 — v12 วางไว้แค่ ADMIN / USER |
+| 11 | ~~`role_code` ที่ศูนย์ใช้จริงมีกี่บทบาท ชื่ออะไร~~ ตอบแล้ว 13 ก.ย. 2026: `WAREHOUSE` · `DELIVERY` · `VIEWER` เพิ่มใน [`SQL/SQL-PENBUN-v13.sql`](./SQL/SQL-PENBUN-v13.sql) ตัดตาม module ของเอกสาร legacy | ✅ |
 
 ---
 
