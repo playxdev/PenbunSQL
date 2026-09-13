@@ -137,9 +137,15 @@ SELECT N'3 · seed', N'tb_privilege_group (SYSTEM/MASTER/DOCUMENT/STOCK)', N'4',
 INSERT #r (part, check_name, expected, actual)
 SELECT N'3 · seed', N'tb_privilege (28+27 ของ v12 บวก 27x3 ของ v13)', N'136',
        CAST(COUNT(*) AS NVARCHAR(40)) FROM dbo.tb_privilege WHERE is_delete = 0;
+/* นับจำนวนแถวตายตัวไม่ได้ — บัญชีเพิ่มได้เรื่อย ๆ สิ่งที่ต้องจริงเสมอคือ
+   ทุกบัญชีที่ยังไม่ถูกลบต้องมีบทบาทอย่างน้อยหนึ่ง ไม่งั้น login ได้แต่ไม่มีสิทธิ์ */
 INSERT #r (part, check_name, expected, actual)
-SELECT N'3 · seed', N'tb_user_role (admin -> ADMIN)', N'1',
-       CAST(COUNT(*) AS NVARCHAR(40)) FROM dbo.tb_user_role;
+SELECT N'3 · seed', N'บัญชีที่ไม่มีแถวใน tb_user_role', N'0',
+       CAST(COUNT(*) AS NVARCHAR(40))
+  FROM dbo.tb_users u
+ WHERE u.is_delete = 0
+   AND NOT EXISTS (SELECT 1 FROM dbo.tb_user_role ur
+                    WHERE ur.ref_user_auto = u.autoID AND ur.is_delete = 0);
 
 /* Business ID ต้องถูกเติมโดยทริกเกอร์ ไม่มีแถวไหน NULL ค้าง
    ถ้า NULL แปลว่า TRIG_GENERATE_*_ID ไม่ทำงาน ซึ่งจะลามไปทุกแถวที่สร้างต่อจากนี้ */
