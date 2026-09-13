@@ -608,7 +608,31 @@ UPDATE dbo.tb_users
 ส่วน `tb_user_role` ต้องมาหลัง `tb_users` ที่มีแถวอยู่แล้ว
 
 `user_level` ไม่ถูกแตะ PenbunAPI รุ่นปัจจุบันจึงทำงานต่อได้โดยไม่ต้องแก้อะไร
-ตารางใหม่เป็น Read Model ที่ยังไม่มีใครอ่าน จนกว่า API จะย้ายไป `vw_user_privilege`
+
+**ผู้ใช้เดิมต้องมีแถวใน `tb_user_role`** — SEED ผูกให้เฉพาะผู้ใช้ตั้งต้น และ `POST /users`
+เริ่มผูกให้ตั้งแต่ 13 ก.ย. 2026 เท่านั้น บัญชีที่สร้างไว้ก่อนหน้าจะไม่มีบทบาท ทำให้
+`GET /auth/me` คืนสิทธิ์ว่าง รันคำสั่งนี้หนึ่งครั้งหลังติดตั้ง ผูกทุกคนเข้าบทบาทที่
+`role_code` ตรงกับ `user_level` ของตัวเอง รันซ้ำได้ ไม่สร้างแถวซ้ำ:
+
+```sql
+INSERT INTO dbo.tb_user_role (prefix, ref_user_auto, ref_role_auto, update_by)
+SELECT N'URO', u.autoID, r.autoID, N'System'
+  FROM dbo.tb_users u
+  INNER JOIN dbo.tb_role r ON r.role_code = u.user_level
+                          AND r.is_delete = 0 AND r.is_active = 1
+ WHERE u.is_delete = 0
+   AND NOT EXISTS (SELECT 1 FROM dbo.tb_user_role ur
+                    WHERE ur.ref_user_auto = u.autoID AND ur.is_delete = 0);
+```
+
+ตรวจว่าไม่มีใครตกหล่น — ต้องได้ศูนย์แถว:
+
+```sql
+SELECT u.user_name, u.user_level FROM dbo.tb_users u
+ WHERE u.is_delete = 0
+   AND NOT EXISTS (SELECT 1 FROM dbo.tb_user_role ur
+                    WHERE ur.ref_user_auto = u.autoID AND ur.is_delete = 0);
+```
 
 **v10 → v11** เพิ่ม View เดียว ไม่แตะตารางเลย ฐานที่มีข้อมูลจริงอยู่แล้ว **ห้ามรัน
 `SQL-PENBUN-v11.sql` ทั้งไฟล์** เพราะ SECTION 1 คือ `DROP` ทั้งฐาน รันแค่คำสั่งนี้พอ:
