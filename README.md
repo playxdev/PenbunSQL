@@ -540,9 +540,14 @@ VALUES
 | `user_id` | `TRIG_GENERATE_TB_USERS_ID` เติมให้ (`USRA000002`) — ถ้าใส่มาเอง Trigger จะข้ามและเลขจะหลุด series |
 | `update_date`, `is_active`, `is_delete`, `id_status`, `counting_password_fail`, `status_user_locked`, `status_change_pw` | มี `DEFAULT` ครบแล้ว |
 
-ค่า `user_level` ที่ใช้อยู่: `ADMIN` / `USER` (ไม่มี CHECK constraint — default = `USER`)
-PenbunAPI รับเฉพาะสองค่านี้ (`domain/user`) และใช้แยกสิทธิ์จริง: ทุกคนที่ login อ่านข้อมูลหลักได้
-การเขียนข้อมูลหลักทุกตารางจำกัดไว้ที่ `ADMIN` ผ่าน `crud.Resource.RequireLevelWrite`
+ค่า `user_level` ไม่มี CHECK constraint (default = `USER`) และไม่มีรายการค่าที่รับได้เขียนไว้ใน
+Go แล้ว — `POST /users` หาแถวใน `tb_role` ที่ `role_code` ตรงกับค่าที่ส่งมา ค่าที่ใช้ได้จึงคือ
+`role_code` ทุกตัวที่ `is_active = 1` ปัจจุบันห้าตัว: `ADMIN` · `USER` · `WAREHOUSE` · `DELIVERY` ·
+`VIEWER` (v12 สองตัวแรก · v13 สามตัวหลัง) เพิ่มบทบาทที่นี่แล้ว API รับทันทีโดยไม่ต้อง deploy
+
+`user_level` ไม่ใช่ตัวบังคับสิทธิ์แล้วตั้งแต่ 13 ก.ย. 2026 — `authz.GuardResource` อ่าน
+`vw_user_privilege` เป็นคนตัดสินทุกเส้นทาง คอลัมน์นี้เหลือหน้าที่เดียวคือบอกว่าตอนสร้างบัญชี
+ให้ผูกบทบาทไหนให้ ตัดทิ้งได้เมื่อมีหน้าจอจัดการ `tb_user_role` โดยตรง
 `status_change_pw` default = `1` แปลว่า**บังคับเปลี่ยนรหัสผ่านตอน login ครั้งแรก** ตาม Authentication Spec M001
 
 **4) ตรวจสอบ**
